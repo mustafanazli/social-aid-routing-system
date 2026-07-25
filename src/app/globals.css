@@ -1,0 +1,186 @@
+@import "tailwindcss";
+
+:root {
+  --background: #eef2f7; /* açık kurumsal zemin */
+  --foreground: #0f172a; /* slate-900 */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* ---- Komuta merkezi arka planı: ince ızgara + hafif ışıma ---- */
+.command-bg {
+  background-color: #0b1220;
+  background-image:
+    radial-gradient(
+      1000px 500px at 15% -10%,
+      rgba(29, 78, 216, 0.25),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 100% 0%,
+      rgba(5, 150, 105, 0.18),
+      transparent 55%
+    ),
+    linear-gradient(
+      to right,
+      rgba(148, 163, 184, 0.06) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(148, 163, 184, 0.06) 1px,
+      transparent 1px
+    );
+  background-size:
+    auto,
+    auto,
+    28px 28px,
+    28px 28px;
+}
+
+/* ---- Cam efekti (glassmorphism) ---- */
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ---- Animasyonlar ---- */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes feed-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-feed-in {
+  animation: feed-in 0.4s ease-out both;
+}
+
+/* Başlangıç konumu marker'ı — yanıp sönen mavi nokta. */
+.origin-pulse {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+.origin-pulse__dot {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.45);
+}
+.origin-pulse__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.4);
+  animation: origin-pulse 1.6s ease-out infinite;
+}
+@keyframes origin-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* "Acil" durak pini üzerindeki titreyen kırmızı rozet. */
+.urgent-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #dc2626;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 12px;
+  text-align: center;
+  box-shadow: 0 0 0 rgba(220, 38, 38, 0.7);
+  animation: urgent-blink 1.1s ease-in-out infinite;
+}
+@keyframes urgent-blink {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(220, 38, 38, 0);
+  }
+}
+
+/* ---- Leaflet popup'ı premium karta çevir ---- */
+.leaflet-popup-content-wrapper {
+  border-radius: 14px !important;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.22) !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  padding: 2px !important;
+}
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  line-height: 1.35 !important;
+}
+.leaflet-popup-tip {
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.18) !important;
+}
+.leaflet-container a.leaflet-popup-close-button {
+  padding: 6px 6px 0 0 !important;
+  color: #94a3b8 !important;
+}
+
+/* ---- İnce, modern kaydırma çubuğu ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.4) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+}
