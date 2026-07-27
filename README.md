@@ -15,6 +15,12 @@ Gezgin Satıcı (TSP) ve Araç Rotalama (VRP) algoritmalarıyla sosyal yardım k
 ![PWA](https://img.shields.io/badge/PWA-Offline_Ready-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
+<br />
+
+[![Canlı Demo](https://img.shields.io/badge/🌐_CANLI_DEMO-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://social-aid-routing-system-wpuj.vercel.app)
+
+**🔗 Canlı Demo:** [social-aid-routing-system-wpuj.vercel.app](https://social-aid-routing-system-wpuj.vercel.app)
+
 </div>
 
 ---

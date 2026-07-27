@@ -216,7 +216,7 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
 
   if (showLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-400">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         {isLive ? 'Canlı rota yükleniyor…' : 'Yükleniyor…'}
       </div>
@@ -225,10 +225,10 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
 
   if (!route) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center">
-        <MapPinned className="h-10 w-10 text-slate-600" />
-        <p className="text-base font-semibold text-slate-200">Rota bulunamadı</p>
-        <p className="text-sm text-slate-400">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50 px-6 text-center">
+        <MapPinned className="h-10 w-10 text-slate-400" />
+        <p className="text-base font-semibold text-slate-900">Rota bulunamadı</p>
+        <p className="text-sm text-slate-600">
           {isLive ? (
             <>
               {serverError ??
@@ -238,7 +238,7 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
           ) : (
             <>
               Bu cihazda{' '}
-              <strong className="text-slate-300">{routeId}</strong> için
+              <strong className="text-slate-800">{routeId}</strong> için
               hesaplanmış bir rota yok. Rotalar yönetici panelinde oluşturulur.
             </>
           )}
@@ -315,14 +315,14 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
   const canBulkNavigate = stopPoints.length > 0;
 
   return (
-    <div className="min-h-screen bg-slate-950 pb-32 text-slate-100">
+    <div className="min-h-screen bg-slate-50 pb-32 text-slate-900">
       {/* ---- Sabit üst bilgi ---- */}
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/95 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto max-w-md px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             <Link
               href="/"
-              className="rounded-lg p-1.5 text-slate-300 active:scale-90 active:bg-white/10"
+              className="rounded-lg p-1.5 text-slate-600 active:scale-90 active:bg-slate-100"
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
@@ -337,9 +337,9 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
                 <Truck className="h-4 w-4" />
                 {route.vehicleName}
               </p>
-              <p className="mt-0.5 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+              <p className="mt-0.5 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
                 {isLive && (
-                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-400">
+                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
                       <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -347,7 +347,7 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
                     Canlı
                   </span>
                 )}
-                {isLive && <span className="text-slate-600">·</span>}
+                {isLive && <span className="text-slate-300">·</span>}
                 Şoför Paneli · {today}
               </p>
             </div>
@@ -357,18 +357,18 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
           {/* İlerleme */}
           <div className="mt-3">
             <div className="mb-1.5 flex items-end justify-between">
-              <p className="text-sm font-semibold text-slate-300">
+              <p className="text-sm font-semibold text-slate-700">
                 Sıradaki Durak{' '}
-                <span className="text-xl font-black text-white">
+                <span className="text-xl font-black text-slate-900">
                   {activeStop ? activeStop.stopOrder : total}
                 </span>
-                <span className="text-slate-500"> / {total}</span>
+                <span className="text-slate-400"> / {total}</span>
               </p>
-              <p className="text-xs font-medium text-emerald-400">
+              <p className="text-xs font-medium text-emerald-600">
                 {Math.round(animatedCompleted)}/{total} tamamlandı
               </p>
             </div>
-            <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700 ease-out"
                 style={{ width: `${progressPct}%` }}
@@ -380,14 +380,14 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-4">
         {/* ---- Toplu rota (ikincil) ---- */}
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <button
             type="button"
             onClick={() => setShowBulk((v) => !v)}
             className="flex w-full items-center gap-2 px-4 py-3 text-left"
           >
-            <MapIcon className="h-4 w-4 text-sky-400" />
-            <span className="flex-1 text-sm font-semibold text-slate-200">
+            <MapIcon className="h-4 w-4 text-sky-600" />
+            <span className="flex-1 text-sm font-semibold text-slate-700">
               Tüm Rotayı Haritada Aç
             </span>
             <ChevronDown
@@ -398,29 +398,29 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
           </button>
 
           {showBulk && (
-            <div className="space-y-2.5 border-t border-white/10 p-3">
+            <div className="space-y-2.5 border-t border-slate-200 p-3">
               <button
                 type="button"
                 onClick={requestLocation}
                 disabled={locationStatus === 'loading'}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-slate-200 transition active:scale-95 disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-sm font-semibold text-slate-700 transition active:scale-95 disabled:opacity-60"
               >
                 {locationStatus === 'loading' ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <LocateFixed className="h-4 w-4 text-blue-400" />
+                  <LocateFixed className="h-4 w-4 text-blue-600" />
                 )}
                 Rotayı Buradan Başlat
               </button>
 
               {locationStatus === 'success' && (
-                <p className="flex items-center gap-1.5 text-[11px] text-emerald-400">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />
+                <p className="flex items-center gap-1.5 text-[11px] text-emerald-600">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
                   Canlı konum alındı.
                 </p>
               )}
               {locationIsFallback && (
-                <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
+                <p className="flex items-center gap-1.5 text-[11px] text-amber-600">
                   <AlertTriangle className="h-3 w-3" />
                   Konum alınamadı — Pendik Belediyesi (yedek).
                 </p>
@@ -435,7 +435,7 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
                   className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold text-white transition active:scale-95 ${
                     canBulkNavigate
                       ? 'bg-blue-600'
-                      : 'pointer-events-none bg-slate-700 text-slate-500'
+                      : 'pointer-events-none bg-slate-200 text-slate-400'
                   }`}
                 >
                   <MapIcon className="h-4 w-4" />
@@ -449,7 +449,7 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
                   className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition active:scale-95 ${
                     canBulkNavigate
                       ? 'bg-amber-400 text-slate-900'
-                      : 'pointer-events-none bg-slate-700 text-slate-500'
+                      : 'pointer-events-none bg-slate-200 text-slate-400'
                   }`}
                 >
                   <Navigation className="h-4 w-4" />
@@ -464,12 +464,12 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
         {activeStop ? (
           <DriverHeroCard stop={activeStop} total={total} />
         ) : (
-          <div className="flex flex-col items-center gap-2 rounded-3xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-10 text-center">
-            <PackageCheck className="h-12 w-12 text-emerald-400" />
-            <p className="text-lg font-black text-white">
+          <div className="flex flex-col items-center gap-2 rounded-3xl border border-emerald-200 bg-emerald-50 px-6 py-10 text-center">
+            <PackageCheck className="h-12 w-12 text-emerald-600" />
+            <p className="text-lg font-black text-slate-900">
               Tüm duraklar tamamlandı! 🎉
             </p>
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-slate-600">
               {total} durağın tamamı işlendi. Teşekkürler!
             </p>
           </div>
@@ -478,7 +478,7 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
         {/* ---- Diğer duraklar (timeline) ---- */}
         {otherStops.length > 0 && (
           <div>
-            <p className="mb-2 flex items-center gap-1.5 px-1 text-xs font-bold uppercase tracking-wide text-slate-400">
+            <p className="mb-2 flex items-center gap-1.5 px-1 text-xs font-bold uppercase tracking-wide text-slate-500">
               <ListChecks className="h-4 w-4" />
               Aşağıdaki Duraklar ({otherStops.length})
             </p>
@@ -492,19 +492,19 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
                     key={stop.stopOrder}
                     className={`flex items-center gap-3 rounded-2xl border p-3 ${
                       isDone
-                        ? 'border-white/5 bg-white/[0.03]'
-                        : 'border-white/10 bg-slate-900'
+                        ? 'border-slate-200 bg-slate-100'
+                        : 'border-slate-200 bg-white'
                     }`}
                   >
                     <span
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black ${
                         stop.status === 'DELIVERED'
-                          ? 'bg-emerald-500/15 text-emerald-400'
+                          ? 'bg-emerald-100 text-emerald-700'
                           : stop.status === 'NOT_HOME'
-                            ? 'bg-amber-500/15 text-amber-400'
+                            ? 'bg-amber-100 text-amber-700'
                             : isUrgent
-                              ? 'bg-rose-500/15 text-rose-400'
-                              : 'bg-white/10 text-slate-300'
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       {stop.status === 'DELIVERED' ? (
@@ -520,12 +520,12 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
                       <p
                         className={`flex items-center gap-1.5 truncate text-sm font-semibold ${
                           isDone
-                            ? 'text-slate-500 line-through'
-                            : 'text-slate-100'
+                            ? 'text-slate-400 line-through'
+                            : 'text-slate-900'
                         }`}
                       >
                         {isUrgent && !isDone && (
-                          <span className="inline-flex shrink-0 items-center rounded bg-rose-500/20 px-1 py-0.5 text-[9px] font-black text-rose-300">
+                          <span className="inline-flex shrink-0 items-center rounded bg-rose-100 px-1 py-0.5 text-[9px] font-black text-rose-700">
                             ACİL
                           </span>
                         )}
@@ -533,7 +533,7 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
                       </p>
                       <p
                         className={`truncate text-xs ${
-                          isDone ? 'text-slate-600' : 'text-slate-400'
+                          isDone ? 'text-slate-400' : 'text-slate-500'
                         }`}
                       >
                         {stop.location.neighborhood || stop.location.cleanAddress}
@@ -549,7 +549,7 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
                           applyStatus(route.vehicleId, stop.stopOrder, 'PENDING')
                         }
                         title="Durumu geri al"
-                        className="rounded-lg p-1.5 text-slate-500 transition active:scale-90 hover:text-slate-300"
+                        className="rounded-lg p-1.5 text-slate-400 transition active:scale-90 hover:text-slate-600"
                       >
                         <RotateCcw className="h-4 w-4" />
                       </button>
@@ -561,20 +561,20 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
           </div>
         )}
 
-        <p className="pt-1 text-center text-[11px] text-slate-600">
+        <p className="pt-1 text-center text-[11px] text-slate-400">
           Pendik Belediyesi · Sosyal Yardım Dağıtım
         </p>
       </main>
 
       {/* ---- Yapışık alt aksiyon barı ---- */}
       {activeStop && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-slate-950/95 backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
           <div className="mx-auto grid max-w-md grid-cols-2 gap-2.5 px-4 py-3">
             <button
               type="button"
               onClick={() => setProofStop(activeStop)}
               disabled={busy !== null}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-base font-black text-white shadow-md shadow-emerald-900/40 transition active:scale-95 active:bg-emerald-700 disabled:opacity-70"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-base font-black text-white shadow-md shadow-emerald-500/30 transition active:scale-95 active:bg-emerald-700 disabled:opacity-70"
             >
               <PackageCheck className="h-6 w-6" />
               Koliyi Teslim Et
@@ -583,7 +583,7 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
               type="button"
               onClick={handleNotHome}
               disabled={busy !== null}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-500 py-4 text-base font-black text-white shadow-md shadow-amber-900/40 transition active:scale-95 active:bg-amber-600 disabled:opacity-70"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-500 py-4 text-base font-black text-white shadow-md shadow-amber-500/30 transition active:scale-95 active:bg-amber-600 disabled:opacity-70"
             >
               {busy === 'nothome' ? (
                 <Loader2 className="h-6 w-6 animate-spin" />

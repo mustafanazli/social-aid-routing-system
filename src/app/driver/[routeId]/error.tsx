@@ -5,7 +5,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
 /**
- * Şoför ekranı hata sınırı (Faz 7.3) — mobil, koyu temalı kurumsal fallback.
+ * Şoför ekranı hata sınırı (Faz 7.3) — mobil, açık temalı kurumsal fallback.
  */
 export default function DriverError({
   error,
@@ -19,15 +19,15 @@ export default function DriverError({
   }, [error]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 px-6 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-400">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 px-6 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
         <AlertTriangle className="h-8 w-8" />
       </div>
       <div>
-        <p className="text-base font-bold text-white">
+        <p className="text-base font-bold text-slate-900">
           Ekran yüklenirken sorun oluştu
         </p>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-slate-600">
           Teslimat verileriniz cihazda güvende. Lütfen tekrar deneyin.
         </p>
       </div>
@@ -39,7 +39,7 @@ export default function DriverError({
         <RefreshCw className="h-4 w-4" />
         Tekrar Dene
       </button>
-      <Link href="/" className="text-xs text-slate-500 underline">
+      <Link href="/" className="text-xs text-slate-400 underline">
         Yönetici Paneli
       </Link>
     </div>
