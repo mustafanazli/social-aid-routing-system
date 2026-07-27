@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Truck,
@@ -21,6 +21,8 @@ import {
 
 import { useDeliveryStore } from '@/store/useDeliveryStore';
 import { useHasHydrated } from '@/hooks/useHasHydrated';
+import { fetchShare, patchStop } from '@/services/shareService';
+import { sharedToVehicleRoute } from '@/lib/shareSerialization';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useCountUp } from '@/hooks/useCountUp';
 import {
@@ -36,23 +38,148 @@ import {
 import { priorityOf } from '@/lib/priority';
 import DriverHeroCard from '@/components/driver/DriverHeroCard';
 import DeliveryProofModal from '@/components/driver/DeliveryProofModal';
-import type { StopItem, StopStatus, DeliveryProof } from '@/types/fleet';
+import type {
+  StopItem,
+  StopStatus,
+  DeliveryProof,
+  VehicleRoute,
+} from '@/types/fleet';
 
 interface DriverScreenProps {
   routeId: string;
+  /** Canlı paylaşım kimliği — verilmişse rota sunucudan çekilir. */
+  shareId?: string | null;
+}
+
+type ServerStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+/**
+ * Sunucudan gelen taze rotayı, yerelde tutulan gerçek kanıt görselleriyle
+ * birleştirir. Sunucu kanıt görselini taşımaz (yalnızca "kanıt var" bilgisi);
+ * bu cihazda az önce çekilen görsel varsa gösterim için korunur.
+ */
+function mergeLocalProofs(
+  fresh: VehicleRoute,
+  prev: VehicleRoute | null,
+): VehicleRoute {
+  if (!prev) return fresh;
+  const prevByOrder = new Map(prev.stops.map((s) => [s.stopOrder, s.proof]));
+  return {
+    ...fresh,
+    stops: fresh.stops.map((s) => {
+      const localProof = prevByOrder.get(s.stopOrder);
+      if (s.proof && localProof && localProof.dataUrl) {
+        return { ...s, proof: localProof };
+      }
+      return s;
+    }),
+  };
 }
 
 /** Mobil şoför dağıtım ekranı (kurye standardı) — /driver/[routeId]. */
-export default function DriverScreen({ routeId }: DriverScreenProps) {
+export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
   const hydrated = useHasHydrated();
   const routes = useDeliveryStore((s) => s.routes);
   const updateStopStatus = useDeliveryStore((s) => s.updateStopStatus);
   const setStopProof = useDeliveryStore((s) => s.setStopProof);
   const pushNotificationLog = useDeliveryStore((s) => s.pushNotificationLog);
 
+  const isLive = Boolean(shareId);
+  const [serverRoute, setServerRoute] = useState<VehicleRoute | null>(null);
+  const [serverStatus, setServerStatus] = useState<ServerStatus>(
+    shareId ? 'loading' : 'idle',
+  );
+  const [serverError, setServerError] = useState<string | null>(null);
+
   const [proofStop, setProofStop] = useState<StopItem | null>(null);
   const [busy, setBusy] = useState<'deliver' | 'nothome' | null>(null);
   const [showBulk, setShowBulk] = useState(false);
+
+  // Canlı mod: rotayı sunucudan çek ve kısa aralıklarla tazele (yönetici
+  // sıralama değiştirirse yansısın). İlk yükleme hatası kritik; sonraki
+  // yoklama hataları sessiz geçilir (geçici ağ kesintisi UI'ı bozmasın).
+  useEffect(() => {
+    if (!shareId) return;
+    let cancelled = false;
+
+    const load = async (initial: boolean) => {
+      try {
+        const snapshot = await fetchShare(shareId);
+        if (cancelled) return;
+        const shared = snapshot.routes.find((r) => r.vehicleId === routeId);
+        if (!shared) {
+          setServerStatus('error');
+          setServerError('Bu araç için paylaşımda rota bulunamadı.');
+          return;
+        }
+        setServerRoute((prev) =>
+          mergeLocalProofs(sharedToVehicleRoute(shared), prev),
+        );
+        setServerStatus('ready');
+        setServerError(null);
+      } catch (error) {
+        if (cancelled || !initial) return;
+        setServerStatus('error');
+        setServerError(
+          error instanceof Error ? error.message : 'Rota yüklenemedi.',
+        );
+      }
+    };
+
+    load(true);
+    const intervalId = window.setInterval(() => load(false), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [shareId, routeId]);
+
+  // Durum güncellemesini uygun hedefe yazar: canlı modda sunucuya (iyimser
+  // yerel güncelleme + PATCH), yerel modda Zustand store'una.
+  const applyStatus = useCallback(
+    (
+      vehicleId: string,
+      stopOrder: number,
+      status: StopStatus,
+      proof?: DeliveryProof,
+    ) => {
+      if (isLive && shareId) {
+        setServerRoute((prev) =>
+          prev
+            ? {
+                ...prev,
+                stops: prev.stops.map((s) =>
+                  s.stopOrder === stopOrder
+                    ? {
+                        ...s,
+                        status,
+                        updatedAt: new Date().toISOString(),
+                        proof: proof ?? s.proof,
+                      }
+                    : s,
+                ),
+              }
+            : prev,
+        );
+        patchStop(shareId, {
+          vehicleId,
+          stopOrder,
+          status,
+          hasProof: Boolean(proof),
+        }).catch((error) =>
+          setServerError(
+            error instanceof Error
+              ? error.message
+              : 'Güncelleme sunucuya gönderilemedi.',
+          ),
+        );
+      } else {
+        updateStopStatus(vehicleId, stopOrder, status);
+        if (proof) setStopProof(vehicleId, stopOrder, proof);
+      }
+    },
+    [isLive, shareId, updateStopStatus, setStopProof],
+  );
 
   const {
     coords: driverCoords,
@@ -61,10 +188,12 @@ export default function DriverScreen({ routeId }: DriverScreenProps) {
     requestLocation,
   } = useCurrentLocation();
 
-  const route = useMemo(
+  const storeRoute = useMemo(
     () => routes.find((r) => r.vehicleId === routeId),
     [routes, routeId],
   );
+  // Canlı modda kaynak sunucudur; aksi halde yerel store.
+  const route = isLive ? serverRoute ?? undefined : storeRoute;
 
   const activeStopOrder = useMemo(() => {
     if (!route) return null;
@@ -81,11 +210,15 @@ export default function DriverScreen({ routeId }: DriverScreenProps) {
     : 0;
   const animatedCompleted = useCountUp(completedCount, 700);
 
-  if (!hydrated) {
+  const showLoading = isLive
+    ? serverStatus === 'idle' || serverStatus === 'loading'
+    : !hydrated;
+
+  if (showLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-400">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        Yükleniyor…
+        {isLive ? 'Canlı rota yükleniyor…' : 'Yükleniyor…'}
       </div>
     );
   }
@@ -96,8 +229,19 @@ export default function DriverScreen({ routeId }: DriverScreenProps) {
         <MapPinned className="h-10 w-10 text-slate-600" />
         <p className="text-base font-semibold text-slate-200">Rota bulunamadı</p>
         <p className="text-sm text-slate-400">
-          Bu cihazda <strong className="text-slate-300">{routeId}</strong> için
-          hesaplanmış bir rota yok. Rotalar yönetici panelinde oluşturulur.
+          {isLive ? (
+            <>
+              {serverError ??
+                'Canlı paylaşım bulunamadı veya süresi dolmuş olabilir.'}{' '}
+              Yönetici panelinden paylaşımı yeniden başlatın.
+            </>
+          ) : (
+            <>
+              Bu cihazda{' '}
+              <strong className="text-slate-300">{routeId}</strong> için
+              hesaplanmış bir rota yok. Rotalar yönetici panelinde oluşturulur.
+            </>
+          )}
         </p>
         <Link
           href="/"
@@ -148,8 +292,7 @@ export default function DriverScreen({ routeId }: DriverScreenProps) {
     status: StopStatus,
     proof?: DeliveryProof,
   ) => {
-    updateStopStatus(route.vehicleId, stop.stopOrder, status);
-    if (proof) setStopProof(route.vehicleId, stop.stopOrder, proof);
+    applyStatus(route.vehicleId, stop.stopOrder, status, proof);
     notifyNextCitizen(stop.stopOrder);
   };
 
@@ -194,7 +337,17 @@ export default function DriverScreen({ routeId }: DriverScreenProps) {
                 <Truck className="h-4 w-4" />
                 {route.vehicleName}
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">
+              <p className="mt-0.5 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+                {isLive && (
+                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-400">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    </span>
+                    Canlı
+                  </span>
+                )}
+                {isLive && <span className="text-slate-600">·</span>}
                 Şoför Paneli · {today}
               </p>
             </div>
@@ -393,11 +546,7 @@ export default function DriverScreen({ routeId }: DriverScreenProps) {
                       <button
                         type="button"
                         onClick={() =>
-                          updateStopStatus(
-                            route.vehicleId,
-                            stop.stopOrder,
-                            'PENDING',
-                          )
+                          applyStatus(route.vehicleId, stop.stopOrder, 'PENDING')
                         }
                         title="Durumu geri al"
                         className="rounded-lg p-1.5 text-slate-500 transition active:scale-90 hover:text-slate-300"

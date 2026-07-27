@@ -41,6 +41,7 @@ Sonuç: **daha az yakıt, daha az CO₂, daha az zaman ve tam izlenebilirlik.**
 - 🧹 **Akıllı Adres Sanitize & Hatalı Veri Kurtarma** — Tutarsız/kirli Excel adreslerini normalize eder; Türkçe karakter düzeltme ve Levenshtein tabanlı bulanık (fuzzy) mahalle eşleştirmesiyle "dirty data" satırlarını kurtarır.
 - 🗺️ **K-Means Kümeleme + OSRM Rota Optimizasyonu** — Adresleri araç kapasitesine göre coğrafi kümelere ayırır, her araç için TSP (Gezgin Satıcı) çözümü üretir; araç başına ayrı renkli, numaralandırılmış rota çizgisi.
 - 📱 **Kurye / Şoför Saha Arayüzü** — Getir / Trendyol Go standartlarında, koyu temalı, dev butonlu ergonomik mobil UI; "Sıradaki Durak X/Y" ilerleme takibi ve Google/Yandex Haritalar navigasyon derin bağlantıları.
+- 📡 **Canlı Rota Paylaşımı (Live Sync)** — Yönetici "Canlı Paylaşım" başlatır; QR/link herhangi bir telefonda açılır, şoför rotayı sunucudan çeker. Şoförün işaretlediği teslimatlar (kısa aralıklı yoklama ile) yönetici paneline **canlı** yansır. Depolama Upstash Redis (kalıcı) ya da geçici in-memory olarak çalışır; ekstra ağır bağımlılık yoktur.
 - ✍️📸 **Fotoğraflı ve İmzalı Teslimat Kanıtı (Proof of Delivery)** — Her teslimatta imza kanvası + kamera fotoğrafı ile kanıt toplama.
 - 🌿 **Akıllı Şehir & Yeşil Belediye Dashboardu** — Optimizasyon sayesinde kazanılan mesafeyi **yakıt (L) ve CO₂ (kg) tasarrufuna** çeviren sürdürülebilirlik kartı.
 - 🔄 **Sürükle-Bırak Rota Müdahalesi & Gün Sonu Excel Export** — Yönetici durak sırasını sürükle-bırakla değiştirir; km/dk canlı yeniden hesaplanır. Gün sonunda "Dağıtım Durumu" ve "Atanan Araç/Sıra" sütunlarıyla Excel çıktısı.
@@ -95,6 +96,40 @@ K-Means Kümeleme (kapasite) ─▶ OSRM TSP Optimizasyon ─▶ Harita + Rota K
 
 ---
 
+## 📡 Canlı Şoför Paylaşımı (Live Route Sharing)
+
+Rotalar tarayıcıda (Zustand + `localStorage`) tutulduğu için, ham şoför linki yalnızca aynı cihazda çalışır. **Canlı Paylaşım** bu sınırı, hafif bir sunucu paylaşım katmanıyla kaldırır:
+
+```
+Yönetici ──"Canlı Paylaşım Başlat"──▶ POST /api/share ──▶ paylaşım deposu ──▶ shareId
+   ▲                                                                            │
+   │  ~4 sn'de bir yoklama (canlı teslim durumu)              QR / link: /driver/<araç>?sid=<shareId>
+   │                                                                            │
+   └───────────────── GET /api/share/<id> ◀── PATCH (teslim ettim / evde yok) ─┘ ◀── Şoför (telefon)
+```
+
+- **Yayınla:** Yönetici panelindeki 4. adımda "Canlı Paylaşımı Başlat" → mevcut rotalar (teslim kanıtı **görselleri arındırılmış** olarak) sunucuya yazılır, kısa bir `shareId` üretilir.
+- **Aç:** QR/link `?sid=<shareId>` taşır; şoför herhangi bir telefonda açar, rota sunucudan yüklenir.
+- **Senkron:** Şoför bir teslimatı işaretlediğinde `PATCH` ile sunucuya yazılır; yönetici paneli kısa aralıklı yoklama (polling) ile durumu **canlı** gösterir.
+- **Gizlilik:** İmza/fotoğraf gibi teslim kanıtı **görselleri sunucuya gönderilmez**; yalnızca "kanıt alındı" bilgisi ve teslim durumu senkronlanır.
+
+### Depolama modları
+
+| Mod | Koşul | Davranış |
+| --- | --- | --- |
+| **Kalıcı (önerilen)** | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` tanımlı | Upstash Redis REST üzerinden; Vercel gibi çok-örnekli ortamda güvenilir çalışır. Paylaşımlar 24 saat sonra otomatik silinir. |
+| **Geçici (yedek)** | Env tanımlı değil | Sunucu belleğinde (in-memory). Tek süreçli `npm run dev` ile telefon testi için yeterlidir; sunucu yeniden başlarsa kaybolur. |
+
+### Ücretsiz kalıcı depolama (Upstash) kurulumu
+
+1. [upstash.com](https://upstash.com) → ücretsiz hesap → **Create Database** (Redis).
+2. Veritabanı sayfasında **REST API** sekmesinden `UPSTASH_REDIS_REST_URL` ve `UPSTASH_REDIS_REST_TOKEN` değerlerini kopyalayın.
+3. Yerelde `.env.local` dosyasına ekleyin; Vercel'de **Project Settings → Environment Variables** altına ekleyip yeniden deploy edin.
+
+> 📱 **Aynı Wi-Fi ile hızlı test:** Deploy etmeden telefonla denemek için sunucuyu ağa açın (`npm run dev -- -H 0.0.0.0`) ve QR yerine bilgisayarınızın LAN IP'siyle (`http://192.168.x.x:3000/...`) açın. Kalıcı ve her yerden erişim için Vercel'e deploy önerilir.
+
+---
+
 ## 🚀 Kurulum ve Çalıştırma (Getting Started)
 
 ### Ön Gereksinimler
@@ -121,6 +156,12 @@ npm run dev
 
 Ardından tarayıcıdan **[http://localhost:3000](http://localhost:3000)** adresini açın.
 
+### 🖱️ Windows'ta Tek Tıkla Çalıştırma
+
+Terminalle uğraşmak istemeyenler için proje kökünde bir **`start-app.cmd`** başlatıcısı vardır. Çift tıklandığında: gerekiyorsa bağımlılıkları kurar, geliştirme sunucusunu başlatır ve birkaç saniye içinde tarayıcıda `localhost:3000`'i açar.
+
+> 💡 Masaüstüne kısayol: `start-app.cmd` dosyasına sağ tıklayın → **Kısayol oluştur** → kısayolu masaüstüne taşıyın. (İsterseniz kısayolun simgesini `src/app/favicon.ico` yapabilirsiniz.)
+
 ### 🔐 Ortam Değişkenleri (Environment Variables)
 
 Tümü **opsiyoneldir**; tanımlanmazsa genel (public) demo servisleri kullanılır. Ayrıntılar için [`.env.example`](.env.example) dosyasına bakın.
@@ -130,8 +171,10 @@ Tümü **opsiyoneldir**; tanımlanmazsa genel (public) demo servisleri kullanıl
 | `NEXT_PUBLIC_OSRM_URL` | OSRM rota optimizasyon sunucusu | `https://router.project-osrm.org` |
 | `NEXT_PUBLIC_NOMINATIM_URL` | Nominatim geocoding uç noktası | `https://nominatim.openstreetmap.org/search` |
 | `NEXT_PUBLIC_NOMINATIM_RATE_LIMIT_MS` | Geocoding istekleri arası min. gecikme (ms) | `1000` |
+| `UPSTASH_REDIS_REST_URL` | Canlı paylaşım için Upstash Redis REST adresi (sunucu tarafı) | _(boş → in-memory)_ |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST erişim jetonu (sunucu tarafı, gizli) | _(boş → in-memory)_ |
 
-> ⚠️ **Üretim notu:** Genel OSRM/Nominatim sunucuları oran-limitlidir ve SLA garantisi vermez. Ölçekli kullanımda kendi OSRM ve Nominatim örneklerinizi kurup bu değişkenlerle bağlamanız önerilir. `NEXT_PUBLIC_` ön ekli değişkenler tarayıcıya gömülür — buraya gizli anahtar koymayın.
+> ⚠️ **Üretim notu:** Genel OSRM/Nominatim sunucuları oran-limitlidir ve SLA garantisi vermez. Ölçekli kullanımda kendi OSRM ve Nominatim örneklerinizi kurup bu değişkenlerle bağlamanız önerilir. `NEXT_PUBLIC_` ön ekli değişkenler tarayıcıya gömülür — buraya gizli anahtar koymayın. `UPSTASH_*` değişkenleri ise **sunucu tarafı gizli** değerlerdir; tanımlanmazsa canlı paylaşım geçici (in-memory) moda düşer.
 
 ### Kullanılabilir Komutlar
 
@@ -151,6 +194,7 @@ src/
 ├── app/                 # App Router: sayfalar, API proxy'leri, hata sınırları
 │   ├── api/geocode/         # Nominatim proxy
 │   ├── api/route-optimize/  # OSRM proxy (TSP + sıra koruma)
+│   ├── api/share/           # Canlı şoför paylaşımı (yayınla / oku / güncelle)
 │   └── driver/[routeId]/    # Şoför mobil ekranı
 ├── components/          # UI (map, route, driver, excel, common)
 ├── lib/                # Algoritmalar: clustering, priority, security, validator...

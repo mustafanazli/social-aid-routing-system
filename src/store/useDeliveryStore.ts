@@ -47,6 +47,8 @@ interface DeliveryState {
   routes: VehicleRoute[];
   activeStep: WorkflowStep;
   notificationLogs: NotificationLog[];
+  /** Aktif canlı paylaşım kimliği (varsa) — şoför linkleri bunu taşır. */
+  shareId: string | null;
 
   // --- Excel / ham veri ---
   setExcelRows: (rows: RawExcelRow[]) => void;
@@ -91,6 +93,9 @@ interface DeliveryState {
   pushNotificationLog: (log: NotificationLog) => void;
   clearNotificationLogs: () => void;
 
+  // --- Canlı şoför paylaşımı ---
+  setShareId: (shareId: string | null) => void;
+
   // --- Adım kontrolü & sıfırlama ---
   setActiveStep: (step: WorkflowStep) => void;
   resetSession: () => void;
@@ -105,6 +110,7 @@ const initialState = {
   routes: [] as VehicleRoute[],
   activeStep: 1 as WorkflowStep,
   notificationLogs: [] as NotificationLog[],
+  shareId: null as string | null,
 };
 
 /** Bildirim akışında saklanacak en fazla kayıt (localStorage şişmesini önler). */
@@ -243,6 +249,9 @@ export const useDeliveryStore = create<DeliveryState>()(
           ),
         })),
       clearNotificationLogs: () => set({ notificationLogs: [] }),
+
+      // --- Canlı şoför paylaşımı ---
+      setShareId: (shareId) => set({ shareId }),
 
       // --- Adım kontrolü & sıfırlama ---
       setActiveStep: (step) => set({ activeStep: step }),
