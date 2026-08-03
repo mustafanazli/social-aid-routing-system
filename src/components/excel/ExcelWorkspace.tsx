@@ -5,6 +5,7 @@ import { FileSpreadsheet, ClipboardList, Trash2, Package } from 'lucide-react';
 
 import ExcelUploader from '@/components/excel/ExcelUploader';
 import AddressPreviewTable from '@/components/excel/AddressPreviewTable';
+import ManualAddressForm from '@/components/excel/ManualAddressForm';
 import { rawRowToSanitized } from '@/lib/sanitizeAddress';
 import { useDeliveryStore } from '@/store/useDeliveryStore';
 import { useHasHydrated } from '@/hooks/useHasHydrated';
@@ -77,7 +78,15 @@ export default function ExcelWorkspace() {
 
       <div className="p-5">
         {!hasData ? (
-          <ExcelUploader onParsed={handleParsed} />
+          <div className="space-y-4">
+            <ExcelUploader onParsed={handleParsed} />
+            <div className="flex items-center gap-3">
+              <span className="h-px flex-1 bg-slate-100" />
+              <span className="text-xs font-medium text-slate-400">veya</span>
+              <span className="h-px flex-1 bg-slate-100" />
+            </div>
+            <ManualAddressForm />
+          </div>
         ) : (
           <div className="space-y-4">
             {/* Özet çubuğu */}
@@ -99,6 +108,8 @@ export default function ExcelWorkspace() {
                 <ExcelUploader onParsed={handleParsed} compact />
               </div>
             </div>
+
+            <ManualAddressForm />
 
             <AddressPreviewTable />
           </div>

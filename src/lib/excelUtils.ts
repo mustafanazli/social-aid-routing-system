@@ -3,7 +3,6 @@ import * as XLSX from 'xlsx';
 import type { RawExcelRow, SanitizedAddress } from '@/types/address';
 import { generateId, normalizeTr } from '@/lib/utils';
 import type { VehicleRoute, StopStatus, DeliveryProof } from '@/types/fleet';
-import { PRIORITY_LABEL, priorityOf } from '@/lib/priority';
 import { sanitizeText, escapeFormula } from '@/lib/security';
 
 /** Aşırı büyük/bozuk dosyaların tarayıcıyı kilitlemesini önleyen satır sınırı. */
@@ -72,6 +71,9 @@ const COLUMN_ALIASES: Record<keyof RawExcelFieldMap, string[]> = {
     'adres tarifi',
     'address',
     'ikamet adresi',
+    // Dışa aktarılan raporun tekrar yüklenebilmesi için rapor sütunları.
+    'orijinal adres',
+    'temizlenmis adres',
   ],
   koliSayisi: [
     'koli sayisi',
@@ -82,14 +84,8 @@ const COLUMN_ALIASES: Record<keyof RawExcelFieldMap, string[]> = {
     'koli miktari',
     'paket sayisi',
   ],
-  oncelik: [
-    'oncelik',
-    'oncelik durumu',
-    'priority',
-    'aciliyet',
-    'durum',
-    'ozel durum',
-  ],
+  enlem: ['enlem', 'lat', 'latitude', 'y'],
+  boylam: ['boylam', 'lng', 'lon', 'long', 'longitude', 'x'],
 };
 
 interface RawExcelFieldMap {
@@ -101,7 +97,8 @@ interface RawExcelFieldMap {
   daireNo?: string;
   acikAdres?: string;
   koliSayisi?: string;
-  oncelik?: string;
+  enlem?: string;
+  boylam?: string;
 }
 
 /** Ham excel objesindeki başlıkları bilinen alanlarla eşleştirir. */
@@ -141,6 +138,19 @@ function parseBoxCount(value: unknown): number {
 function cellToString(value: unknown): string {
   // XSS / kontrol-karakter temizliği veri katmanında uygulanır (Faz 7.1).
   return sanitizeText(value);
+}
+
+/**
+ * Enlem/boylam hücresini sayıya çevirir. Türkçe Excel'lerde ondalık ayıracı
+ * virgül olabildiğinden ("40,8879") virgül noktaya çevrilir. Geçersizse null.
+ */
+function parseCoord(value: unknown): number | null {
+  if (value === '' || value === null || value === undefined) return null;
+  const num =
+    typeof value === 'number'
+      ? value
+      : parseFloat(String(value).trim().replace(',', '.'));
+  return Number.isFinite(num) ? num : null;
 }
 
 /**
@@ -184,6 +194,10 @@ export async function parseExcelFile(file: File): Promise<RawExcelRow[]> {
     const binaNo = get('binaNo');
     const daireNo = get('daireNo');
 
+    // Hazır koordinat (varsa) — daha önce elle düzeltilip dışa aktarılmış olabilir.
+    const lat = mapping.enlem ? parseCoord(row[mapping.enlem]) : null;
+    const lng = mapping.boylam ? parseCoord(row[mapping.boylam]) : null;
+
     // Açık adres sütunu yoksa parça sütunlardan adres metni oluştur.
     const composedAddress =
       acikAdres ||
@@ -204,10 +218,121 @@ export async function parseExcelFile(file: File): Promise<RawExcelRow[]> {
       koliSayisi: mapping.koliSayisi
         ? parseBoxCount(row[mapping.koliSayisi])
         : 1,
-      oncelik: get('oncelik'),
+      ...(lat !== null && lng !== null ? { lat, lng } : {}),
       __rowKey: generateId('row'),
     };
   });
+}
+
+/**
+ * Kullanıcıların doldurup deneyebileceği örnek dağıtım listesi (şablon) üretir
+ * ve indirir. Başlıklar COLUMN_ALIASES ile birebir tanınacak biçimde seçilmiştir;
+ * satırlar gerçek Pendik mahallelerinden + serbest yazım örneklerinden oluşur.
+ */
+export function downloadSampleTemplate(): void {
+  // Tüm satırlar GERÇEK Pendik adresleridir (mahalle + cadde/sokak + bina no),
+  // her biri Google Haritalar'da bina/sokak seviyesinde doğrulanmıştır. Enlem/
+  // Boylam BİLEREK boş bırakılmıştır → uygulama bu adresleri canlı olarak Google
+  // ile konumlar. (İstenirse elle düzeltilen koordinatlar dışa aktarımda bu iki
+  // sütuna yazılır ve tekrar yüklemede aynen korunur.)
+  const sampleRows = [
+    {
+      'Ad Soyad': 'Ayşe Yılmaz',
+      Telefon: '0532 111 22 33',
+      Mahalle: 'Fevzi Çakmak',
+      'Cadde/Sokak': 'Selanik Sokak',
+      'Bina No': '5',
+      'Daire No': 3,
+      'Açık Adres': 'Fevzi Çakmak Mah. Selanik Sokak No:5 Daire 3',
+      'Koli Sayısı': 2,
+    },
+    {
+      'Ad Soyad': 'Mehmet Demir',
+      Telefon: '0505 444 55 66',
+      Mahalle: 'Fevzi Çakmak',
+      'Cadde/Sokak': 'Tophane Sokak',
+      'Bina No': '4A',
+      'Daire No': 20,
+      'Açık Adres': 'Fevzi Çakmak Mah. Tophane Sokak No:4A Daire 20',
+      'Koli Sayısı': 1,
+    },
+    {
+      'Ad Soyad': 'Fatma Kaya',
+      Telefon: '0543 777 88 99',
+      Mahalle: 'Batı',
+      'Cadde/Sokak': '23 Nisan Caddesi',
+      'Bina No': '10',
+      'Daire No': 5,
+      'Açık Adres': 'Batı Mah. 23 Nisan Caddesi No:10 Daire 5',
+      'Koli Sayısı': 3,
+    },
+    {
+      'Ad Soyad': 'Hasan Şahin',
+      Telefon: '0555 123 45 67',
+      Mahalle: 'Kaynarca',
+      'Cadde/Sokak': 'Barbaros Caddesi',
+      'Bina No': '25',
+      'Daire No': 8,
+      'Açık Adres': 'Kaynarca Mah. Barbaros Caddesi No:25 Daire 8',
+      'Koli Sayısı': 1,
+    },
+    {
+      'Ad Soyad': 'Zeynep Aydın',
+      Telefon: '0530 998 76 54',
+      Mahalle: 'Güzelyalı',
+      'Cadde/Sokak': 'Sahil Yolu Caddesi',
+      'Bina No': '8',
+      'Daire No': 2,
+      'Açık Adres': 'Güzelyalı Mah. Sahil Yolu Caddesi No:8 Daire 2',
+      'Koli Sayısı': 2,
+    },
+    {
+      'Ad Soyad': 'Ali Öztürk',
+      Telefon: '0542 321 00 11',
+      Mahalle: 'Dumlupınar',
+      'Cadde/Sokak': 'İnönü Caddesi',
+      'Bina No': '30',
+      'Daire No': 12,
+      'Açık Adres': 'Dumlupınar Mah. İnönü Caddesi No:30 Daire 12',
+      'Koli Sayısı': 1,
+    },
+    {
+      'Ad Soyad': 'Emine Çelik',
+      Telefon: '0533 654 32 10',
+      Mahalle: 'Yenişehir',
+      'Cadde/Sokak': 'Dedepaşa Caddesi',
+      'Bina No': '10',
+      'Daire No': 4,
+      'Açık Adres': 'Yenişehir Mah. Dedepaşa Caddesi No:10 Daire 4',
+      'Koli Sayısı': 2,
+    },
+    {
+      'Ad Soyad': 'Mustafa Arslan',
+      Telefon: '0544 220 11 88',
+      Mahalle: 'Ertuğrul Gazi',
+      'Cadde/Sokak': 'Bora Sokak',
+      'Bina No': '3',
+      'Daire No': 1,
+      'Açık Adres': 'Ertuğrul Gazi Mah. Bora Sokak No:3 Daire 1',
+      'Koli Sayısı': 1,
+    },
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(sampleRows);
+  worksheet['!cols'] = [
+    { wch: 18 }, // Ad Soyad
+    { wch: 16 }, // Telefon
+    { wch: 14 }, // Mahalle
+    { wch: 18 }, // Cadde/Sokak
+    { wch: 9 }, // Bina No
+    { wch: 9 }, // Daire No
+    { wch: 44 }, // Açık Adres
+    { wch: 11 }, // Koli Sayısı
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Dağıtım Listesi');
+  XLSX.writeFile(workbook, 'Pendik_Ornek_Dagitim_Listesi.xlsx');
 }
 
 /** Teslimat durumunu Türkçe rapor etiketine çevirir. */
@@ -236,7 +361,6 @@ function proofToTr(proof: DeliveryProof | undefined): string {
 interface ReportRow {
   'Atanan Araç': string;
   'Durak Sırası': number | string;
-  Öncelik: string;
   'Alıcı Adı': string;
   Telefon: string;
   'Orijinal Adres': string;
@@ -269,7 +393,6 @@ export function exportDeliveryReportToExcel(
       rows.push({
         'Atanan Araç': escapeFormula(route.vehicleName),
         'Durak Sırası': stop.stopOrder,
-        Öncelik: PRIORITY_LABEL[priorityOf(loc)],
         'Alıcı Adı': escapeFormula(loc.recipientName),
         Telefon: escapeFormula(loc.phone),
         'Orijinal Adres': escapeFormula(loc.originalText),
@@ -291,7 +414,6 @@ export function exportDeliveryReportToExcel(
     rows.push({
       'Atanan Araç': '—',
       'Durak Sırası': '',
-      Öncelik: PRIORITY_LABEL[priorityOf(a)],
       'Alıcı Adı': escapeFormula(a.recipientName),
       Telefon: escapeFormula(a.phone),
       'Orijinal Adres': escapeFormula(a.originalText),
@@ -310,7 +432,6 @@ export function exportDeliveryReportToExcel(
   worksheet['!cols'] = [
     { wch: 12 }, // Araç
     { wch: 11 }, // Sıra
-    { wch: 9 }, // Öncelik
     { wch: 20 }, // Alıcı
     { wch: 15 }, // Telefon
     { wch: 40 }, // Orijinal Adres

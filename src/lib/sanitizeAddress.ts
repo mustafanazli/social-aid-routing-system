@@ -6,7 +6,6 @@ import {
 } from '@/constants/pendikNeighborhoods';
 import type { RawExcelRow, SanitizedAddress } from '@/types/address';
 import { generateId, normalizeTr } from '@/lib/utils';
-import { parsePriority } from '@/lib/priority';
 
 export interface SanitizeResult {
   /** Temizlenmiş ve ", Pendik, İstanbul, Türkiye" eki eklenmiş tam adres. */
@@ -61,9 +60,12 @@ function levenshtein(a: string, b: string): number {
 }
 
 // Mahalle adlarını bir kez normalize ederek önbelleğe al.
+// `normNoSpace`: "Fevzi Çakmak" ↔ "Fevziçakmak" gibi bitişik/ayrık yazım
+// farklarını yakalamak için boşlukları da atılmış hâli.
 const NORMALIZED_NEIGHBORHOODS = PENDIK_NEIGHBORHOODS.map((name) => ({
   name,
   norm: normalizeTr(name),
+  normNoSpace: normalizeTr(name).replace(/\s+/g, ''),
 }));
 
 /**
@@ -73,11 +75,14 @@ const NORMALIZED_NEIGHBORHOODS = PENDIK_NEIGHBORHOODS.map((name) => ({
  */
 export function detectNeighborhood(text: string): string {
   const normText = normalizeTr(text).replace(/\bmah(?:allesi|\.)?\b/g, ' ');
+  const normTextNoSpace = normText.replace(/\s+/g, '');
 
-  // 1) Doğrudan içerme — en uzun eşleşmeyi tercih et.
-  const directMatches = NORMALIZED_NEIGHBORHOODS.filter((n) =>
-    normText.includes(n.norm),
-  ).sort((a, b) => b.norm.length - a.norm.length);
+  // 1) Doğrudan içerme — boşluklu ve boşluksuz biçimlerin ikisini de dener,
+  //    en uzun (en spesifik) eşleşmeyi tercih eder.
+  const directMatches = NORMALIZED_NEIGHBORHOODS.filter(
+    (n) =>
+      normText.includes(n.norm) || normTextNoSpace.includes(n.normNoSpace),
+  ).sort((a, b) => b.normNoSpace.length - a.normNoSpace.length);
   if (directMatches.length > 0) return directMatches[0].name;
 
   // 2) Yazım hatası toleranslı eşleşme (kayan kelime penceresi).
@@ -165,6 +170,14 @@ export function rawRowToSanitized(row: RawExcelRow): SanitizedAddress {
   const originalText = row.acikAdres?.trim() || segments.join(', ');
   const { cleanAddress, neighborhood } = sanitizeAddress(segments.join(', '));
 
+  // Excel'de geçerli hazır koordinat varsa taşı (geocoding'i atlamak için).
+  const hasPresetCoords =
+    typeof row.lat === 'number' &&
+    Number.isFinite(row.lat) &&
+    typeof row.lng === 'number' &&
+    Number.isFinite(row.lng) &&
+    (row.lat !== 0 || row.lng !== 0);
+
   return {
     id:
       row.id !== undefined && row.id !== null && row.id !== ''
@@ -181,7 +194,9 @@ export function rawRowToSanitized(row: RawExcelRow): SanitizedAddress {
       typeof row.koliSayisi === 'number' && row.koliSayisi > 0
         ? row.koliSayisi
         : 1,
-    priority: parsePriority(row.oncelik),
+    ...(hasPresetCoords
+      ? { presetLat: row.lat, presetLng: row.lng }
+      : {}),
   };
 }
 

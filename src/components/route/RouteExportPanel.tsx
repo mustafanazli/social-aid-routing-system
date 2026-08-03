@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import dynamic from 'next/dynamic';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Share2,
@@ -17,13 +18,32 @@ import {
   Cloud,
   CloudOff,
   AlertTriangle,
+  MapPin,
 } from 'lucide-react';
 
 import { useDeliveryStore } from '@/store/useDeliveryStore';
 import { useHasHydrated } from '@/hooks/useHasHydrated';
 import { exportDeliveryReportToExcel } from '@/lib/excelUtils';
 import { createShare, fetchShare } from '@/services/shareService';
+import type {
+  SharedRoute,
+  DriverLocation,
+} from '@/lib/shareSerialization';
 import type { SanitizedAddress } from '@/types/address';
+
+// Leaflet SSR-güvensiz → yalnızca istemcide yükle.
+const LiveTrackingMap = dynamic(
+  () => import('@/components/map/LiveTrackingMap'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center text-sm text-slate-400">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        Harita yükleniyor…
+      </div>
+    ),
+  },
+);
 
 interface LiveCount {
   delivered: number;
@@ -43,6 +63,8 @@ export default function RouteExportPanel() {
   const [persistent, setPersistent] = useState<boolean | null>(null);
   const [live, setLive] = useState<Record<string, LiveCount>>({});
   const [liveError, setLiveError] = useState<string | null>(null);
+  const [sharedRoutes, setSharedRoutes] = useState<SharedRoute[]>([]);
+  const [driverLocs, setDriverLocs] = useState<DriverLocation[]>([]);
 
   // Şoför linkleri için origin yalnızca istemcide bilinir (SSR uyumu):
   // effect'te setState yerine dış kaynak anlık görüntüsü olarak okunur.
@@ -86,6 +108,8 @@ export default function RouteExportPanel() {
           };
         }
         setLive(next);
+        setSharedRoutes(snapshot.routes);
+        setDriverLocs(snapshot.driverLocations ?? []);
         setLiveError(null);
       } catch (error) {
         if (cancelled) return;
@@ -137,6 +161,8 @@ export default function RouteExportPanel() {
     setShareId(null);
     setPersistent(null);
     setLive({});
+    setSharedRoutes([]);
+    setDriverLocs([]);
     setLiveError(null);
   };
 
@@ -246,6 +272,39 @@ export default function RouteExportPanel() {
               Canlı güncelleme duraklıyor: {liveError}
             </p>
           )}
+        </div>
+      )}
+
+      {/* Canlı takip haritası */}
+      {shareId && (
+        <div className="border-b border-slate-100 px-5 py-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h4 className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+              <MapPin className="h-4 w-4 text-emerald-600" />
+              Canlı Takip Haritası
+            </h4>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                driverLocs.length > 0
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              <Truck className="h-3 w-3" />
+              {driverLocs.length} şoför canlı
+            </span>
+          </div>
+
+          <div className="relative h-[360px] overflow-hidden rounded-xl border border-slate-200">
+            <LiveTrackingMap routes={sharedRoutes} driverLocations={driverLocs} />
+            {driverLocs.length === 0 && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/95 to-transparent px-4 py-3 text-center text-xs text-slate-500">
+                Şoför, telefonundaki{' '}
+                <strong className="text-slate-700">“Canlı Konumu Paylaş”</strong>{' '}
+                düğmesini açınca konumu burada anlık görünür.
+              </div>
+            )}
+          </div>
         </div>
       )}
 

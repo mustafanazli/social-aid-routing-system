@@ -43,3 +43,45 @@ export function buildYandexMapsRouteUrl(origin: Point, stops: Point[]): string {
   const rtext = [origin, ...stops].map(fmt).join('~');
   return `https://yandex.com.tr/harita/?rtext=${rtext}&rtt=auto`;
 }
+
+/**
+ * Apple Haritalar ile tek durağa yol tarifi.
+ * iOS/macOS'ta doğrudan Harita uygulamasını açar; diğer platformlarda
+ * maps.apple.com web sayfasına düşer. dirflg=d → araçla sürüş modu.
+ * https://maps.apple.com/?daddr=<lat>,<lng>&dirflg=d
+ */
+export function buildAppleMapsNavUrl(p: Point): string {
+  return `https://maps.apple.com/?daddr=${p.lat},${p.lng}&dirflg=d`;
+}
+
+/**
+ * Tek bir adresi Google Haritalar'da arama olarak açar (yeni sekme).
+ * Operatör doğru noktayı bulup koordinatı kopyalayıp uygulamaya yapıştırır.
+ * https://www.google.com/maps/search/?api=1&query=<adres>
+ */
+export function buildGoogleMapsSearchUrl(query: string): string {
+  const params = new URLSearchParams({ api: '1', query });
+  return `https://www.google.com/maps/search/?${params.toString()}`;
+}
+
+/**
+ * Google Haritalar'dan kopyalanan koordinat metnini ("40.887880, 29.260750")
+ * ayrıştırır. Ayırıcı virgül veya boşluk olabilir; Google nokta ondalık
+ * kullandığından ilk iki ondalıklı sayı enlem/boylam kabul edilir.
+ * İstanbul/Pendik makul aralığında değilse null döner (yanlış yapıştırmayı önler).
+ */
+export function parseLatLng(text: string): Point | null {
+  if (!text) return null;
+  const nums = text.match(/-?\d+(?:\.\d+)?/g);
+  if (!nums || nums.length < 2) return null;
+
+  const lat = parseFloat(nums[0]);
+  const lng = parseFloat(nums[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  // Türkiye kabaca lat 35–43, lng 25–45. Bu aralık dışını geçersiz say
+  // (ör. lat/lng ters yapıştırılmış veya alakasız bir metin).
+  if (lat < 35 || lat > 43 || lng < 25 || lng > 45) return null;
+
+  return { lat, lng };
+}

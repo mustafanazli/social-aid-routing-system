@@ -17,11 +17,16 @@ import {
   Home as HomeIcon,
   PackageCheck,
   ChevronDown,
+  Radio,
 } from 'lucide-react';
 
 import { useDeliveryStore } from '@/store/useDeliveryStore';
 import { useHasHydrated } from '@/hooks/useHasHydrated';
-import { fetchShare, patchStop } from '@/services/shareService';
+import {
+  fetchShare,
+  patchStop,
+  patchDriverLocation,
+} from '@/services/shareService';
 import { sharedToVehicleRoute } from '@/lib/shareSerialization';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useCountUp } from '@/hooks/useCountUp';
@@ -31,13 +36,7 @@ import {
   type Point,
 } from '@/lib/navigationLinks';
 import { PENDIK_MUNICIPALITY } from '@/constants/config';
-import {
-  buildArrivalNotification,
-  broadcastNotification,
-} from '@/lib/notifications';
-import { priorityOf } from '@/lib/priority';
 import DriverHeroCard from '@/components/driver/DriverHeroCard';
-import DeliveryProofModal from '@/components/driver/DeliveryProofModal';
 import type {
   StopItem,
   StopStatus,
@@ -82,7 +81,6 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
   const routes = useDeliveryStore((s) => s.routes);
   const updateStopStatus = useDeliveryStore((s) => s.updateStopStatus);
   const setStopProof = useDeliveryStore((s) => s.setStopProof);
-  const pushNotificationLog = useDeliveryStore((s) => s.pushNotificationLog);
 
   const isLive = Boolean(shareId);
   const [serverRoute, setServerRoute] = useState<VehicleRoute | null>(null);
@@ -91,9 +89,9 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
   );
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const [proofStop, setProofStop] = useState<StopItem | null>(null);
   const [busy, setBusy] = useState<'deliver' | 'nothome' | null>(null);
   const [showBulk, setShowBulk] = useState(false);
+  const [sharingLoc, setSharingLoc] = useState(false);
 
   // Canlı mod: rotayı sunucudan çek ve kısa aralıklarla tazele (yönetici
   // sıralama değiştirirse yansısın). İlk yükleme hatası kritik; sonraki
@@ -188,6 +186,27 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
     requestLocation,
   } = useCurrentLocation();
 
+  // Canlı konum paylaşımı açıkken GPS'i başlat ve 15 sn'de bir tazele.
+  useEffect(() => {
+    if (!isLive || !shareId || !sharingLoc) return;
+    requestLocation();
+    const id = window.setInterval(() => requestLocation(), 15000);
+    return () => window.clearInterval(id);
+  }, [isLive, shareId, sharingLoc, requestLocation]);
+
+  // Gerçek GPS konumu alındıkça sunucuya gönder (yedek/belediye konumu gönderilmez).
+  useEffect(() => {
+    if (!isLive || !shareId || !sharingLoc) return;
+    if (locationStatus !== 'success' || !driverCoords) return;
+    patchDriverLocation(shareId, {
+      vehicleId: routeId,
+      lat: driverCoords.lat,
+      lng: driverCoords.lng,
+    }).catch(() => {
+      /* geçici ağ hatası — bir sonraki tazelemede yeniden denenir */
+    });
+  }, [isLive, shareId, sharingLoc, locationStatus, driverCoords, routeId]);
+
   const storeRoute = useMemo(
     () => routes.find((r) => r.vehicleId === routeId),
     [routes, routeId],
@@ -268,32 +287,28 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
     weekday: 'long',
   });
 
-  const notifyNextCitizen = (completedStopOrder: number) => {
-    const next = sortedStops.find(
-      (s) => s.stopOrder !== completedStopOrder && s.status === 'PENDING',
-    );
-    if (!next) return;
-    const avgLeg =
-      route.totalDurationMinutes > 0 && total > 0
-        ? route.totalDurationMinutes / total
-        : 12;
-    const log = buildArrivalNotification({
-      recipientName: next.location.recipientName || 'Vatandaş',
-      stopOrder: next.stopOrder,
-      vehicleName: route.vehicleName,
-      etaMinutes: Math.max(5, Math.round(avgLeg)),
-    });
-    pushNotificationLog(log);
-    broadcastNotification(log);
-  };
-
   const handleComplete = (
     stop: StopItem,
     status: StopStatus,
     proof?: DeliveryProof,
   ) => {
     applyStatus(route.vehicleId, stop.stopOrder, status, proof);
-    notifyNextCitizen(stop.stopOrder);
+  };
+
+  // Teslim: yanlışlıkla basmayı önlemek için küçük bir onay penceresi çıkar,
+  // onaylanırsa kısa bir "kaydediliyor" hissiyle durağı teslim edildi yapar.
+  const handleDeliver = () => {
+    if (!activeStop) return;
+    const name = activeStop.location.recipientName || 'Alıcı';
+    const ok = window.confirm(
+      `"${name}" için koli teslim edildi olarak işaretlensin mi?`,
+    );
+    if (!ok) return;
+    setBusy('deliver');
+    window.setTimeout(() => {
+      handleComplete(activeStop, 'DELIVERED');
+      setBusy(null);
+    }, 350);
   };
 
   // Dokunma hissi için kısa "kaydediliyor" efekti, ardından işlemi uygula.
@@ -379,6 +394,57 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
       </header>
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-4">
+        {/* ---- Canlı konum paylaşımı (yalnızca canlı modda) ---- */}
+        {isLive && (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <button
+              type="button"
+              onClick={() => setSharingLoc((v) => !v)}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left"
+            >
+              <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                  sharingLoc
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {sharingLoc ? (
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-600" />
+                  </span>
+                ) : (
+                  <Radio className="h-4 w-4" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-slate-800">
+                  {sharingLoc
+                    ? 'Canlı konum paylaşılıyor'
+                    : 'Canlı Konumu Paylaş'}
+                </span>
+                <span className="block text-xs text-slate-500">
+                  {sharingLoc
+                    ? locationStatus === 'success'
+                      ? 'Yönetici sizi haritada canlı görüyor.'
+                      : 'Konum bekleniyor… (izin verin)'
+                    : 'Yöneticinin sizi haritada görmesi için açın.'}
+                </span>
+              </span>
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                  sharingLoc
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                {sharingLoc ? 'AÇIK' : 'KAPALI'}
+              </span>
+            </button>
+          </div>
+        )}
+
         {/* ---- Toplu rota (ikincil) ---- */}
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <button
@@ -486,7 +552,6 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
               {otherStops.map((stop) => {
                 const isDone =
                   stop.status === 'DELIVERED' || stop.status === 'NOT_HOME';
-                const isUrgent = priorityOf(stop.location) === 'URGENT';
                 return (
                   <li
                     key={stop.stopOrder}
@@ -502,9 +567,7 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
                           ? 'bg-emerald-100 text-emerald-700'
                           : stop.status === 'NOT_HOME'
                             ? 'bg-amber-100 text-amber-700'
-                            : isUrgent
-                              ? 'bg-rose-100 text-rose-700'
-                              : 'bg-slate-100 text-slate-600'
+                            : 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       {stop.status === 'DELIVERED' ? (
@@ -518,17 +581,12 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
 
                     <div className="min-w-0 flex-1">
                       <p
-                        className={`flex items-center gap-1.5 truncate text-sm font-semibold ${
+                        className={`truncate text-sm font-semibold ${
                           isDone
                             ? 'text-slate-400 line-through'
                             : 'text-slate-900'
                         }`}
                       >
-                        {isUrgent && !isDone && (
-                          <span className="inline-flex shrink-0 items-center rounded bg-rose-100 px-1 py-0.5 text-[9px] font-black text-rose-700">
-                            ACİL
-                          </span>
-                        )}
                         {stop.location.recipientName || 'İsimsiz alıcı'}
                       </p>
                       <p
@@ -572,11 +630,15 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
           <div className="mx-auto grid max-w-md grid-cols-2 gap-2.5 px-4 py-3">
             <button
               type="button"
-              onClick={() => setProofStop(activeStop)}
+              onClick={handleDeliver}
               disabled={busy !== null}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-base font-black text-white shadow-md shadow-emerald-500/30 transition active:scale-95 active:bg-emerald-700 disabled:opacity-70"
             >
-              <PackageCheck className="h-6 w-6" />
+              {busy === 'deliver' ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                <PackageCheck className="h-6 w-6" />
+              )}
               Koliyi Teslim Et
             </button>
             <button
@@ -594,18 +656,6 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
             </button>
           </div>
         </div>
-      )}
-
-      {/* ---- Teslim kanıtı modalı ---- */}
-      {proofStop && (
-        <DeliveryProofModal
-          recipientName={proofStop.location.recipientName || 'Alıcı'}
-          onCancel={() => setProofStop(null)}
-          onConfirm={(proof) => {
-            handleComplete(proofStop, 'DELIVERED', proof);
-            setProofStop(null);
-          }}
-        />
       )}
     </div>
   );

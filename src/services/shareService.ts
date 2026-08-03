@@ -2,7 +2,12 @@
 // Yönetici paneli ve şoför ekranı bu fonksiyonlar üzerinden `/api/share`
 // uç noktalarıyla konuşur.
 
-import type { SharedRoute, StopPatch } from '@/lib/shareSerialization';
+import type {
+  SharedRoute,
+  StopPatch,
+  DriverLocation,
+  DriverLocationPatch,
+} from '@/lib/shareSerialization';
 import type { VehicleRoute } from '@/types/fleet';
 
 export interface CreateShareResult {
@@ -14,6 +19,7 @@ export interface CreateShareResult {
 
 export interface ShareSnapshot {
   routes: SharedRoute[];
+  driverLocations?: DriverLocation[];
   createdAt: string;
   updatedAt: string;
 }
@@ -68,4 +74,22 @@ export async function patchStop(
   }
   const result = (await res.json()) as { routes: SharedRoute[] };
   return result.routes;
+}
+
+/** Şoförün canlı konumunu sunucuya yazar (araç bazında son konum güncellenir). */
+export async function patchDriverLocation(
+  shareId: string,
+  patch: DriverLocationPatch,
+): Promise<void> {
+  const res = await fetch(`/api/share/${encodeURIComponent(shareId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(data?.error ?? `Konum gönderilemedi (${res.status}).`);
+  }
 }

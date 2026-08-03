@@ -9,13 +9,15 @@
 //      yeterlidir (aynı Wi-Fi / tünel üzerinden telefonla test). Sunucu yeniden
 //      başlarsa veya birden fazla örnek çalışırsa paylaşım kaybolur.
 
-import type { SharedRoute } from './shareSerialization';
+import type { SharedRoute, DriverLocation } from './shareSerialization';
 
 /** Bir paylaşım oturumunda saklanan tüm veri. */
 export interface StoredShare {
   createdAt: string;
   updatedAt: string;
   routes: SharedRoute[];
+  /** Araç bazında son bilinen şoför konumu (canlı takip). */
+  driverLocations?: DriverLocation[];
 }
 
 /** Paylaşımların yaşam süresi (saniye) — 24 saat sonra otomatik silinir. */

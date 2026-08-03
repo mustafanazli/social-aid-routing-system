@@ -11,15 +11,11 @@ export interface RawExcelRow {
   daireNo?: string;
   acikAdres: string;
   koliSayisi?: number;
-  oncelik?: string;
+  /** Excel'de hazır koordinat varsa (ör. daha önce elle düzeltilip dışa aktarılmış). */
+  lat?: number;
+  lng?: number;
   [key: string]: unknown;
 }
-
-/**
- * Adres öncelik durumu (Faz 6.5).
- * URGENT = Acil (yaşlı/hasta) → rotada öne alınır ve haritada kırmızı vurgulanır.
- */
-export type AddressPriority = 'NORMAL' | 'HIGH' | 'URGENT';
 
 /** Sanitize edilmiş (temizlenmiş / standardize edilmiş) adres. */
 export interface SanitizedAddress {
@@ -32,11 +28,19 @@ export interface SanitizedAddress {
   recipientName: string;
   phone: string;
   boxCount: number;
-  /** Öncelik; alan yoksa NORMAL kabul edilir (geriye dönük uyumlu). */
-  priority?: AddressPriority;
+  /**
+   * Excel'den gelen hazır koordinat (varsa). Doluysa geocoding atlanır ve
+   * konum doğrudan MANUAL olarak işaretlenir — daha önce elle düzeltilmiş
+   * adreslerin tekrar yüklemede korunmasını sağlar.
+   */
+  presetLat?: number;
+  presetLng?: number;
 }
 
 export type GeocodingStatus = 'SUCCESS' | 'FAILED' | 'PENDING' | 'MANUAL';
+
+/** Adresi çözen otomatik konum sağlayıcısı. */
+export type GeocodeProvider = 'yandex' | 'google' | 'osm';
 
 /** Coğrafi koordinata çözümlenmiş adres. */
 export interface GeocodedLocation extends SanitizedAddress {
@@ -45,4 +49,6 @@ export interface GeocodedLocation extends SanitizedAddress {
   geocodingStatus: GeocodingStatus;
   confidenceScore?: number;
   formattedAddressFromAPI?: string;
+  /** Konumu hangi servis buldu (yandex/google/osm) — UI rozetinde gösterilir. */
+  provider?: GeocodeProvider;
 }

@@ -7,7 +7,6 @@ import type {
   RawExcelRow,
   SanitizedAddress,
   GeocodedLocation,
-  AddressPriority,
 } from '@/types/address';
 import type {
   VehicleConfig,
@@ -16,17 +15,6 @@ import type {
   StopItem,
   DeliveryProof,
 } from '@/types/fleet';
-
-/** Canlı bildirim akışı kaydı (SMS/WhatsApp simülasyonu — Faz 6.2). */
-export interface NotificationLog {
-  id: string;
-  channel: 'SMS' | 'WHATSAPP';
-  message: string;
-  recipientName: string;
-  stopOrder: number;
-  vehicleName: string;
-  createdAt: string;
-}
 
 /**
  * Uygulama akışındaki 4 ana adım:
@@ -46,7 +34,6 @@ interface DeliveryState {
   vehicleConfigs: VehicleConfig[];
   routes: VehicleRoute[];
   activeStep: WorkflowStep;
-  notificationLogs: NotificationLog[];
   /** Aktif canlı paylaşım kimliği (varsa) — şoför linkleri bunu taşır. */
   shareId: string | null;
 
@@ -56,10 +43,10 @@ interface DeliveryState {
 
   // --- Sanitize edilmiş adresler ---
   setSanitizedAddresses: (addresses: SanitizedAddress[]) => void;
+  /** Tek bir adresi listenin sonuna ekler (elle giriş). */
+  addSanitizedAddress: (address: SanitizedAddress) => void;
   updateSanitizedAddress: (id: string, patch: Partial<SanitizedAddress>) => void;
   removeSanitizedAddress: (id: string) => void;
-  /** Önceliği hem sanitize hem geocode listelerinde senkron günceller. */
-  setAddressPriority: (id: string, priority: AddressPriority) => void;
 
   // --- Geocode edilmiş konumlar ---
   setGeocodedLocations: (locations: GeocodedLocation[]) => void;
@@ -89,10 +76,6 @@ interface DeliveryState {
     proof: DeliveryProof,
   ) => void;
 
-  // --- Canlı bildirim akışı (SMS/WhatsApp simülasyonu) ---
-  pushNotificationLog: (log: NotificationLog) => void;
-  clearNotificationLogs: () => void;
-
   // --- Canlı şoför paylaşımı ---
   setShareId: (shareId: string | null) => void;
 
@@ -109,12 +92,8 @@ const initialState = {
   vehicleConfigs: [] as VehicleConfig[],
   routes: [] as VehicleRoute[],
   activeStep: 1 as WorkflowStep,
-  notificationLogs: [] as NotificationLog[],
   shareId: null as string | null,
 };
-
-/** Bildirim akışında saklanacak en fazla kayıt (localStorage şişmesini önler). */
-const MAX_NOTIFICATION_LOGS = 50;
 
 export const useDeliveryStore = create<DeliveryState>()(
   persist(
@@ -128,6 +107,10 @@ export const useDeliveryStore = create<DeliveryState>()(
       // --- Sanitize edilmiş adresler ---
       setSanitizedAddresses: (addresses) =>
         set({ sanitizedAddresses: addresses }),
+      addSanitizedAddress: (address) =>
+        set((state) => ({
+          sanitizedAddresses: [...state.sanitizedAddresses, address],
+        })),
       updateSanitizedAddress: (id, patch) =>
         set((state) => ({
           sanitizedAddresses: state.sanitizedAddresses.map((a) =>
@@ -138,16 +121,6 @@ export const useDeliveryStore = create<DeliveryState>()(
         set((state) => ({
           sanitizedAddresses: state.sanitizedAddresses.filter(
             (a) => a.id !== id,
-          ),
-        })),
-      setAddressPriority: (id, priority) =>
-        set((state) => ({
-          sanitizedAddresses: state.sanitizedAddresses.map((a) =>
-            a.id === id ? { ...a, priority } : a,
-          ),
-          // Geocode edilmiş kopyayı da senkron tut (varsa).
-          geocodedLocations: state.geocodedLocations.map((l) =>
-            l.id === id ? { ...l, priority } : l,
           ),
         })),
 
@@ -238,17 +211,6 @@ export const useDeliveryStore = create<DeliveryState>()(
               : r,
           ),
         })),
-
-      // --- Canlı bildirim akışı ---
-      pushNotificationLog: (log) =>
-        set((state) => ({
-          // Yeni kayıt başa; en fazla MAX_NOTIFICATION_LOGS tutulur.
-          notificationLogs: [log, ...state.notificationLogs].slice(
-            0,
-            MAX_NOTIFICATION_LOGS,
-          ),
-        })),
-      clearNotificationLogs: () => set({ notificationLogs: [] }),
 
       // --- Canlı şoför paylaşımı ---
       setShareId: (shareId) => set({ shareId }),

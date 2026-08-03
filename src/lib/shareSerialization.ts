@@ -50,6 +50,61 @@ export interface StopPatch {
   hasProof?: boolean;
 }
 
+/** Bir aracın (şoförün) canlı konumu. */
+export interface DriverLocation {
+  vehicleId: string;
+  lat: number;
+  lng: number;
+  updatedAt: string;
+}
+
+/** Şoför cihazından gelen konum güncelleme isteği. */
+export interface DriverLocationPatch {
+  vehicleId: string;
+  lat: number;
+  lng: number;
+}
+
+/** Konum güncellemesini araç bazında ekler/günceller (mutasyonsuz). */
+export function applyDriverLocation(
+  locations: DriverLocation[] | undefined,
+  patch: DriverLocationPatch,
+): DriverLocation[] {
+  const base = locations ?? [];
+  const entry: DriverLocation = {
+    vehicleId: patch.vehicleId,
+    lat: patch.lat,
+    lng: patch.lng,
+    updatedAt: new Date().toISOString(),
+  };
+  const idx = base.findIndex((d) => d.vehicleId === patch.vehicleId);
+  if (idx >= 0) {
+    const copy = base.slice();
+    copy[idx] = entry;
+    return copy;
+  }
+  return [...base, entry];
+}
+
+/** Konum patch gövdesini doğrular (Türkiye kabaca lat 35–43, lng 25–45). */
+export function isValidDriverLocationPatch(
+  value: unknown,
+): value is DriverLocationPatch {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.vehicleId === 'string' &&
+    typeof v.lat === 'number' &&
+    Number.isFinite(v.lat) &&
+    typeof v.lng === 'number' &&
+    Number.isFinite(v.lng) &&
+    v.lat >= 35 &&
+    v.lat <= 43 &&
+    v.lng >= 25 &&
+    v.lng <= 45
+  );
+}
+
 /** VehicleRoute[] → paylaşılabilir (görselden arındırılmış) rotalar. */
 export function toSharedRoutes(routes: VehicleRoute[]): SharedRoute[] {
   return routes.map((r) => ({

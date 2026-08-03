@@ -15,9 +15,15 @@ import {
 
 import { useDeliveryStore } from '@/store/useDeliveryStore';
 import { useHasHydrated } from '@/hooks/useHasHydrated';
-import { batchGeocode, toPendingLocation } from '@/services/nominatimService';
+import {
+  batchGeocode,
+  toPendingLocation,
+  hasPresetLocation,
+  toPresetLocation,
+} from '@/services/nominatimService';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import MapErrorBoundary from '@/components/common/MapErrorBoundary';
+import LocationVerifyList from '@/components/map/LocationVerifyList';
 import type { GeocodedLocation } from '@/types/address';
 
 /**
@@ -94,20 +100,30 @@ export default function MapSection() {
     cancelledRef.current = false;
     setIsGeocoding(true);
     setManualTargetId(null);
-    setProgress({ done: 0, total: sanitizedAddresses.length });
 
-    // Tüm adresleri PENDING olarak başlat (haritada henüz görünmezler).
-    setGeocodedLocations(sanitizedAddresses.map(toPendingLocation));
+    // Excel'de hazır koordinatı olan adresler (önceden elle düzeltilmiş) ağ
+    // isteği olmadan doğrudan MANUAL konumlanır; sadece kalanlar geocode edilir.
+    const needGeocode = sanitizedAddresses.filter((a) => !hasPresetLocation(a));
+    setProgress({ done: 0, total: needGeocode.length });
+
+    // Hazır koordinatlılar MANUAL, kalanlar PENDING olarak başlar.
+    setGeocodedLocations(
+      sanitizedAddresses.map((a) =>
+        hasPresetLocation(a) ? toPresetLocation(a) : toPendingLocation(a),
+      ),
+    );
 
     try {
-      await batchGeocode(sanitizedAddresses, {
-        isCancelled: () => cancelledRef.current,
-        onResult: (location, index, total) => {
-          // Her sonucu store'a yaz — pinler tek tek belirsin.
-          updateGeocodedLocation(location.id, location);
-          setProgress({ done: index + 1, total });
-        },
-      });
+      if (needGeocode.length > 0) {
+        await batchGeocode(needGeocode, {
+          isCancelled: () => cancelledRef.current,
+          onResult: (location, index, total) => {
+            // Her sonucu store'a yaz — pinler tek tek belirsin.
+            updateGeocodedLocation(location.id, location);
+            setProgress({ done: index + 1, total });
+          },
+        });
+      }
     } finally {
       setIsGeocoding(false);
       runningRef.current = false;
@@ -363,6 +379,14 @@ export default function MapSection() {
           </div>
         </aside>
       </div>
+
+      {/* Google Maps ile tüm adresleri tek tek doğrulama/konumlama */}
+      {hasGeocoded && (
+        <LocationVerifyList
+          locations={geocodedLocations}
+          onApplyCoord={handleMarkerDragEnd}
+        />
+      )}
     </section>
   );
 }

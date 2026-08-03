@@ -50,12 +50,6 @@ yarn-error.log*
 .vscode/
 *.swp
 
-# Yerel geliştirme / asistan notları — repoya girmez
-.claude/
-CLAUDE.md
-AGENTS.md
-TASKS.md
-
 # vercel
 .vercel
 

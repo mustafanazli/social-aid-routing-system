@@ -17,8 +17,8 @@ export default function ConnectionBadge() {
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${
         isOnline
-          ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
-          : 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : 'border-amber-200 bg-amber-50 text-amber-700'
       }`}
     >
       {isOnline ? (

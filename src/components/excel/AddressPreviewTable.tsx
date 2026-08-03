@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { Pencil, Trash2, Check, X, MapPin } from 'lucide-react';
 
 import { useDeliveryStore } from '@/store/useDeliveryStore';
-import type { SanitizedAddress, AddressPriority } from '@/types/address';
-import { priorityOf } from '@/lib/priority';
+import type { SanitizedAddress } from '@/types/address';
 
 interface DraftValues {
   recipientName: string;
@@ -23,7 +22,6 @@ export default function AddressPreviewTable() {
   const removeSanitizedAddress = useDeliveryStore(
     (s) => s.removeSanitizedAddress,
   );
-  const setAddressPriority = useDeliveryStore((s) => s.setAddressPriority);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftValues | null>(null);
@@ -66,7 +64,7 @@ export default function AddressPreviewTable() {
 
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200">
-      <table className="w-full min-w-[940px] border-collapse text-left text-sm">
+      <table className="w-full min-w-[820px] border-collapse text-left text-sm">
         <thead>
           <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <th className="w-10 px-3 py-3 font-semibold">#</th>
@@ -74,7 +72,6 @@ export default function AddressPreviewTable() {
             <th className="px-3 py-3 font-semibold">Orijinal Adres</th>
             <th className="px-3 py-3 font-semibold">Temizlenmiş Adres</th>
             <th className="px-3 py-3 font-semibold">Mahalle</th>
-            <th className="w-28 px-3 py-3 font-semibold">Öncelik</th>
             <th className="w-20 px-3 py-3 text-center font-semibold">Koli</th>
             <th className="w-24 px-3 py-3 text-center font-semibold">İşlem</th>
           </tr>
@@ -85,13 +82,7 @@ export default function AddressPreviewTable() {
             return (
               <tr
                 key={a.id}
-                className={`${
-                  isEditing ? 'bg-emerald-50/40' : 'hover:bg-slate-50'
-                } ${
-                  priorityOf(a) === 'URGENT'
-                    ? 'border-l-4 border-l-red-500'
-                    : ''
-                }`}
+                className={isEditing ? 'bg-emerald-50/40' : 'hover:bg-slate-50'}
               >
                 <td className="px-3 py-3 align-top text-xs text-slate-400">
                   {index + 1}
@@ -159,30 +150,6 @@ export default function AddressPreviewTable() {
                   ) : (
                     <span className="text-xs text-amber-600">Belirsiz</span>
                   )}
-                </td>
-
-                {/* Öncelik */}
-                <td className="px-3 py-3 align-top">
-                  <select
-                    value={priorityOf(a)}
-                    onChange={(e) =>
-                      setAddressPriority(
-                        a.id,
-                        e.target.value as AddressPriority,
-                      )
-                    }
-                    className={`w-full rounded-md border px-2 py-1 text-xs font-semibold focus:outline-none ${
-                      priorityOf(a) === 'URGENT'
-                        ? 'border-red-300 bg-red-50 text-red-700'
-                        : priorityOf(a) === 'HIGH'
-                          ? 'border-amber-300 bg-amber-50 text-amber-700'
-                          : 'border-slate-300 bg-white text-slate-600'
-                    }`}
-                  >
-                    <option value="NORMAL">Normal</option>
-                    <option value="HIGH">Yüksek</option>
-                    <option value="URGENT">Acil</option>
-                  </select>
                 </td>
 
                 {/* Koli Sayısı */}

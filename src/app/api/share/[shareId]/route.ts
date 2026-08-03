@@ -1,7 +1,12 @@
 import type { NextRequest } from 'next/server';
 
 import { getShare, putShare } from '@/lib/shareStore';
-import { applyStopPatch, isValidStopPatch } from '@/lib/shareSerialization';
+import {
+  applyStopPatch,
+  isValidStopPatch,
+  applyDriverLocation,
+  isValidDriverLocationPatch,
+} from '@/lib/shareSerialization';
 
 /**
  * Tekil paylaşım uç noktası.
@@ -37,6 +42,7 @@ export async function GET(
 
   return Response.json({
     routes: share.routes,
+    driverLocations: share.driverLocations ?? [],
     createdAt: share.createdAt,
     updatedAt: share.updatedAt,
   });
@@ -55,7 +61,9 @@ export async function PATCH(
     return Response.json({ error: 'Geçersiz JSON gövdesi.' }, { status: 400 });
   }
 
-  if (!isValidStopPatch(body)) {
+  // İki tür güncelleme kabul edilir: (1) şoför konumu, (2) durak durumu.
+  const isLocation = isValidDriverLocationPatch(body);
+  if (!isLocation && !isValidStopPatch(body)) {
     return Response.json(
       { error: 'Geçersiz güncelleme isteği.' },
       { status: 400 },
@@ -78,14 +86,24 @@ export async function PATCH(
     );
   }
 
-  const updatedRoutes = applyStopPatch(share.routes, body);
   const updatedAt = new Date().toISOString();
+  // Diğer alan her iki dalda da korunur (konum güncellemesi durakları,
+  // durak güncellemesi konumları silmemeli). Inline tip-guard'lar `body`'yi
+  // daraltır.
+  let updatedRoutes = share.routes;
+  let updatedLocations = share.driverLocations;
+  if (isValidDriverLocationPatch(body)) {
+    updatedLocations = applyDriverLocation(share.driverLocations, body);
+  } else if (isValidStopPatch(body)) {
+    updatedRoutes = applyStopPatch(share.routes, body);
+  }
 
   try {
     await putShare(shareId, {
       createdAt: share.createdAt,
       updatedAt,
       routes: updatedRoutes,
+      driverLocations: updatedLocations,
     });
   } catch (error) {
     const message =
@@ -93,5 +111,9 @@ export async function PATCH(
     return Response.json({ error: message }, { status: 502 });
   }
 
-  return Response.json({ routes: updatedRoutes, updatedAt });
+  return Response.json({
+    routes: updatedRoutes,
+    driverLocations: updatedLocations ?? [],
+    updatedAt,
+  });
 }

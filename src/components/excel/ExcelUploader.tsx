@@ -6,9 +6,11 @@ import {
   FileSpreadsheet,
   Loader2,
   AlertCircle,
+  Download,
 } from 'lucide-react';
 
-import { parseExcelFile } from '@/lib/excelUtils';
+import { parseExcelFile, downloadSampleTemplate } from '@/lib/excelUtils';
+import { parsePdfFile } from '@/lib/pdfImport';
 import { useDeliveryStore } from '@/store/useDeliveryStore';
 import type { RawExcelRow } from '@/types/address';
 import { cn } from '@/lib/utils';
@@ -17,7 +19,8 @@ import {
   ACCEPTED_EXCEL_EXTENSIONS,
 } from '@/lib/security';
 
-const ACCEPTED_EXTENSIONS = [...ACCEPTED_EXCEL_EXTENSIONS];
+const MAX_PDF_SIZE = 8 * 1024 * 1024;
+const ACCEPTED_EXTENSIONS = [...ACCEPTED_EXCEL_EXTENSIONS, '.pdf'];
 
 interface ExcelUploaderProps {
   /** Satırlar başarıyla okunduğunda tetiklenir (store'a rawAddresses yazıldıktan sonra). */
@@ -45,17 +48,32 @@ export default function ExcelUploader({
   const handleFile = useCallback(
     async (file: File) => {
       setError(null);
+      const isPdf = file.name.toLowerCase().endsWith('.pdf');
 
-      // Güvenlik: uzantı + MIME + boyut (maks. 5 MB) denetimi (Faz 7.1).
-      const validation = validateExcelFile(file);
-      if (!validation.ok) {
-        setError(validation.error ?? 'Dosya reddedildi.');
-        return;
+      if (isPdf) {
+        // PDF: hafif doğrulama (boyut/boş); metin çıkarımı sunucuda yapılır.
+        if (file.size === 0) {
+          setError('Dosya boş görünüyor.');
+          return;
+        }
+        if (file.size > MAX_PDF_SIZE) {
+          setError('PDF çok büyük (maks. 8 MB).');
+          return;
+        }
+      } else {
+        // Excel/CSV: uzantı + MIME + boyut (maks. 5 MB) denetimi (Faz 7.1).
+        const validation = validateExcelFile(file);
+        if (!validation.ok) {
+          setError(validation.error ?? 'Dosya reddedildi.');
+          return;
+        }
       }
 
       setIsParsing(true);
       try {
-        const rows = await parseExcelFile(file);
+        const rows = isPdf
+          ? await parsePdfFile(file)
+          : await parseExcelFile(file);
         setExcelRows(rows);
         setRawAddresses(rows);
         onParsed?.(rows);
@@ -160,10 +178,10 @@ export default function ExcelUploader({
           <p className="text-sm font-semibold text-slate-800">
             {isParsing
               ? 'Dosya okunuyor…'
-              : 'Excel dosyasını buraya sürükleyin veya seçin'}
+              : 'Excel veya PDF dosyasını buraya sürükleyin veya seçin'}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Desteklenen biçimler: .xlsx, .xls · Maks. 5 MB
+            Desteklenen biçimler: .xlsx, .xls · .pdf (metin tabanlı) · Maks. 5–8 MB
           </p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white">
@@ -178,6 +196,17 @@ export default function ExcelUploader({
           {error}
         </div>
       )}
+
+      <div className="mt-3 flex items-center justify-center">
+        <button
+          type="button"
+          onClick={downloadSampleTemplate}
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Nasıl görünmeli? Örnek Excel&apos;i indirin
+        </button>
+      </div>
 
       <input
         ref={inputRef}

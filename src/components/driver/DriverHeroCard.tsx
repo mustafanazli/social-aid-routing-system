@@ -1,9 +1,8 @@
 'use client';
 
-import { MapPin, Package, Phone, AlertTriangle, Navigation2 } from 'lucide-react';
+import { MapPin, Package, Phone, Navigation2 } from 'lucide-react';
 
 import type { StopItem } from '@/types/fleet';
-import { priorityOf } from '@/lib/priority';
 import NavButton from '@/components/driver/NavButton';
 
 interface DriverHeroCardProps {
@@ -14,32 +13,12 @@ interface DriverHeroCardProps {
 /** Kahraman kart — şoförün gitmesi gereken birincil (aktif) durak. */
 export default function DriverHeroCard({ stop, total }: DriverHeroCardProps) {
   const { location } = stop;
-  const isUrgent = priorityOf(location) === 'URGENT';
 
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl bg-white shadow-xl ring-1 transition ${
-        isUrgent
-          ? 'ring-2 ring-rose-400 shadow-rose-500/20'
-          : 'ring-slate-200'
-      }`}
-      style={
-        isUrgent
-          ? { borderTop: '5px solid #f43f5e' }
-          : { borderTop: '5px solid #10b981' }
-      }
+      className="relative overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-slate-200 transition"
+      style={{ borderTop: '5px solid #10b981' }}
     >
-      {/* Acil rozeti */}
-      {isUrgent && (
-        <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-rose-600 px-3 py-1.5 text-xs font-extrabold text-white shadow-lg">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
-          </span>
-          ACİL · YAŞLI/HASTA
-        </span>
-      )}
-
       <div className="p-5">
         {/* Sıra etiketi */}
         <div className="flex items-center gap-2">
@@ -87,12 +66,6 @@ export default function DriverHeroCard({ stop, total }: DriverHeroCardProps) {
               <Phone className="h-5 w-5" />
               Ara
             </a>
-          )}
-          {isUrgent && (
-            <span className="inline-flex items-center gap-1 rounded-xl bg-rose-50 px-3 py-1.5 text-sm font-bold text-rose-700">
-              <AlertTriangle className="h-4 w-4" />
-              Öncelikli teslim
-            </span>
           )}
         </div>
 

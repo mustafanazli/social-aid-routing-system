@@ -1,4 +1,8 @@
-import type { SanitizedAddress, GeocodedLocation } from '@/types/address';
+import type {
+  SanitizedAddress,
+  GeocodedLocation,
+  GeocodeProvider,
+} from '@/types/address';
 import { NOMINATIM_RATE_LIMIT_MS } from '@/constants/config';
 
 /**
@@ -16,6 +20,7 @@ export interface GeocodeOutcome {
   lng?: number;
   confidenceScore?: number;
   formattedAddressFromAPI?: string;
+  provider?: GeocodeProvider;
 }
 
 interface GeocodeApiResponse {
@@ -27,6 +32,7 @@ interface GeocodeApiResponse {
     approximate: boolean;
     withinBounds: boolean;
     formattedAddressFromAPI: string;
+    provider?: GeocodeProvider;
   } | null;
   error?: string;
 }
@@ -73,6 +79,7 @@ export async function geocodeAddress(
       lng: data.result.lng,
       confidenceScore: data.result.confidenceScore,
       formattedAddressFromAPI: data.result.formattedAddressFromAPI,
+      provider: data.result.provider,
     };
   } catch {
     // Ağ hatası vb. — adres FAILED olarak işaretlenip manuel pin'e bırakılır.
@@ -90,6 +97,29 @@ export function toPendingLocation(address: SanitizedAddress): GeocodedLocation {
   };
 }
 
+/** Excel'den hazır koordinat gelmiş mi? (geocoding atlanır) */
+export function hasPresetLocation(address: SanitizedAddress): boolean {
+  return (
+    typeof address.presetLat === 'number' &&
+    Number.isFinite(address.presetLat) &&
+    typeof address.presetLng === 'number' &&
+    Number.isFinite(address.presetLng)
+  );
+}
+
+/**
+ * Hazır koordinatlı adresi doğrudan MANUAL konuma çevirir. Böylece daha önce
+ * elle düzeltilip Excel'e yazılmış adresler ağ isteği olmadan aynen konumlanır.
+ */
+export function toPresetLocation(address: SanitizedAddress): GeocodedLocation {
+  return {
+    ...address,
+    lat: address.presetLat as number,
+    lng: address.presetLng as number,
+    geocodingStatus: 'MANUAL',
+  };
+}
+
 /** Bir geocoding sonucunu adresle birleştirip GeocodedLocation üretir. */
 export function applyOutcome(
   address: SanitizedAddress,
@@ -103,6 +133,7 @@ export function applyOutcome(
       geocodingStatus: 'SUCCESS',
       confidenceScore: outcome.confidenceScore,
       formattedAddressFromAPI: outcome.formattedAddressFromAPI,
+      provider: outcome.provider,
     };
   }
   return {

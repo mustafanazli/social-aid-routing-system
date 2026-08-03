@@ -66,7 +66,7 @@ export default function WorkspaceTabs() {
   const ActiveComponent = TABS.find((t) => t.id === active)!.Component;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/70 p-2 shadow-sm backdrop-blur sm:p-3">
+    <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:p-3">
       {/* Sekme çubuğu */}
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {TABS.map((tab) => {
@@ -82,7 +82,7 @@ export default function WorkspaceTabs() {
               }}
               className={`group inline-flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition active:scale-95 ${
                 isActive
-                  ? 'bg-gradient-to-r from-blue-600 to-emerald-500 text-white shadow-md shadow-blue-900/20'
+                  ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-600 hover:bg-slate-100'
               }`}
             >

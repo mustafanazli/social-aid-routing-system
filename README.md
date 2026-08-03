@@ -2,7 +2,7 @@
 
 # 🚚 Pendik Belediyesi | Akıllı Lojistik ve Sosyal Yardım Rota Optimizasyon Sistemi
 
-**Kirli Excel verisinden → optimize edilmiş, sahada takip edilebilir dağıtım rotalarına.**
+**Kirli Excel/PDF verisinden → optimize edilmiş, sahada canlı takip edilebilir dağıtım rotalarına.**
 
 Gezgin Satıcı (TSP) ve Araç Rotalama (VRP) algoritmalarıyla sosyal yardım kolilerinin en kısa mesafe, en az yakıt ve en düşük karbon salınımıyla dağıtılmasını sağlayan uçtan uca bir akıllı şehir lojistik platformu.
 
@@ -29,14 +29,14 @@ Gezgin Satıcı (TSP) ve Araç Rotalama (VRP) algoritmalarıyla sosyal yardım k
 
 Belediyelerin sosyal yardım dağıtımı klasik olarak **hantal ve hataya açık** bir süreçtir:
 
-- 📋 **Kirli veri:** Yardım listeleri elle doldurulmuş, tutarsız ve hatalı yazılmış Excel adreslerinden oluşur ("Pendik/Çınardere Mh 5. sk no12 daire3" gibi).
+- 📋 **Kirli veri:** Yardım listeleri elle doldurulmuş, tutarsız ve hatalı yazılmış Excel/PDF adreslerinden oluşur ("Pendik/Çınardere Mh 5. sk no12 daire3" gibi).
 - ⛽ **Yakıt ve zaman israfı:** Şoförler adresleri sezgisel/rastgele sırayla gezer; aynı mahalleye günde birkaç kez gidilir.
 - 🧮 **Manuel planlama:** Hangi aracın nereye gideceği kâğıt üzerinde, optimizasyonsuz planlanır.
-- ❓ **Takip yokluğu:** "Koli teslim edildi mi, evde yok muydu?" sorusunun kanıtlanabilir bir yanıtı olmaz.
+- ❓ **Takip yokluğu:** "Şoför nerede, koli teslim edildi mi, evde yok muydu?" sorusunun anlık bir yanıtı olmaz.
 
 Bu sistem tüm bu adımları tek bir akışta **otomatikleştirir ve optimize eder:**
 
-> Kirli Excel yüklenir → adresler akıllıca temizlenir (sanitize) → koordinata çevrilir (geocoding) → araç kapasitelerine göre **K-Means ile coğrafi kümelere** ayrılır → her küme **OSRM Trip API (TSP)** ile en kısa rotaya optimize edilir → şoför mobil arayüzden adım adım navigasyonla dağıtımı yapar ve **fotoğraflı/imzalı teslim kanıtı** toplar → gün sonu raporu Excel olarak dışa aktarılır.
+> Kirli Excel/PDF yüklenir (ya da adres elle girilir) → adresler akıllıca temizlenir (sanitize) → **Google/Yandex/OSM zinciriyle** koordinata çevrilir (geocoding) → araç kapasitelerine göre **K-Means ile coğrafi kümelere** ayrılır → her küme **OSRM Trip API (TSP)** ile en kısa rotaya optimize edilir → şoför mobil arayüzden adım adım (Google/Yandex/Apple) navigasyonla dağıtımı yapar → yönetici, şoförü ve teslimatları **haritada canlı** izler → gün sonu raporu Excel olarak dışa aktarılır.
 
 Sonuç: **daha az yakıt, daha az CO₂, daha az zaman ve tam izlenebilirlik.**
 
@@ -44,16 +44,17 @@ Sonuç: **daha az yakıt, daha az CO₂, daha az zaman ve tam izlenebilirlik.**
 
 ## ✨ Öne Çıkan Özellikler (Key Features)
 
-- 🧹 **Akıllı Adres Sanitize & Hatalı Veri Kurtarma** — Tutarsız/kirli Excel adreslerini normalize eder; Türkçe karakter düzeltme ve Levenshtein tabanlı bulanık (fuzzy) mahalle eşleştirmesiyle "dirty data" satırlarını kurtarır.
+- 🧹 **Akıllı Adres Sanitize & Hatalı Veri Kurtarma** — Tutarsız/kirli adresleri normalize eder; Türkçe karakter düzeltme ve Levenshtein tabanlı bulanık (fuzzy) mahalle eşleştirmesiyle "dirty data" satırlarını kurtarır.
+- 📥 **Çok Kaynaklı Adres Girişi (Excel · PDF · Elle)** — `.xlsx/.xls` yükleme, **metin tabanlı PDF listelerinden adres çıkarma** (sütun tespitiyle "Ad Soyad | Adres" ayrımı) ve telefonla gelen tek başvurular için **elle tek adres ekleme** formu.
+- 🌍 **Çok Sağlayıcılı Geocoding (Google → Yandex → OSM)** — Adresler önce Google, bulunamazsa Yandex, o da olmazsa OpenStreetMap ile konumlanır. Anahtarlar **sunucu tarafında** tutulur, tarayıcıya sızmaz; hiçbir anahtar yoksa sistem yalnızca OSM ile çalışmaya devam eder. Ayrıca her adres için tek tıkla **Google Maps'te doğrulama** yardımcısı.
 - 🗺️ **K-Means Kümeleme + OSRM Rota Optimizasyonu** — Adresleri araç kapasitesine göre coğrafi kümelere ayırır, her araç için TSP (Gezgin Satıcı) çözümü üretir; araç başına ayrı renkli, numaralandırılmış rota çizgisi.
-- 📱 **Kurye / Şoför Saha Arayüzü** — Getir / Trendyol Go standartlarında, koyu temalı, dev butonlu ergonomik mobil UI; "Sıradaki Durak X/Y" ilerleme takibi ve Google/Yandex Haritalar navigasyon derin bağlantıları.
-- 📡 **Canlı Rota Paylaşımı (Live Sync)** — Yönetici "Canlı Paylaşım" başlatır; QR/link herhangi bir telefonda açılır, şoför rotayı sunucudan çeker. Şoförün işaretlediği teslimatlar (kısa aralıklı yoklama ile) yönetici paneline **canlı** yansır. Depolama Upstash Redis (kalıcı) ya da geçici in-memory olarak çalışır; ekstra ağır bağımlılık yoktur.
-- ✍️📸 **Fotoğraflı ve İmzalı Teslimat Kanıtı (Proof of Delivery)** — Her teslimatta imza kanvası + kamera fotoğrafı ile kanıt toplama.
-- 🌿 **Akıllı Şehir & Yeşil Belediye Dashboardu** — Optimizasyon sayesinde kazanılan mesafeyi **yakıt (L) ve CO₂ (kg) tasarrufuna** çeviren sürdürülebilirlik kartı.
-- 🔄 **Sürükle-Bırak Rota Müdahalesi & Gün Sonu Excel Export** — Yönetici durak sırasını sürükle-bırakla değiştirir; km/dk canlı yeniden hesaplanır. Gün sonunda "Dağıtım Durumu" ve "Atanan Araç/Sıra" sütunlarıyla Excel çıktısı.
+- 📱 **Kurye / Şoför Saha Arayüzü** — Kurye standartlarında, aydınlık ve ergonomik mobil UI; "Sıradaki Durak X/Y" ilerleme takibi ve **Google · Yandex · Apple Haritalar** navigasyon derin bağlantıları.
+- 📡 **Canlı Rota Paylaşımı + Canlı Şoför Takibi** — Yönetici "Canlı Paylaşım" başlatır; QR/link herhangi bir telefonda açılır. Şoförün işaretlediği teslimatlar **ve konumu**, yönetici panelindeki **canlı takip haritasında** anlık görünür (kısa aralıklı yoklama ile).
+- ✅ **Basit ve Hızlı Teslim Onayı** — Her durakta tek dokunuşla, yanlışlıkla basmayı önleyen küçük bir onay penceresiyle "Teslim Edildi / Evde Yok" işaretleme.
+- 🔄 **Sürükle-Bırak Rota Müdahalesi & Gün Sonu Excel Export** — Yönetici durak sırasını sürükle-bırakla değiştirir; km/dk canlı yeniden hesaplanır. Gün sonunda "Dağıtım Durumu" ve "Atanan Araç/Sıra" sütunlarıyla Excel çıktısı. Elle düzeltilen koordinatlar dışa aktarımda saklanır ve tekrar yüklemede korunur (round-trip).
 - 📴 **PWA & Çevrimdışı (Offline) Çalışma Desteği** — Manifest + Service Worker ile sahada bağlantı koptuğunda dahi çalışabilen, kurulabilir uygulama.
-- 🚦 **Öncelikli Adresler & Akış Denetimi** — Normal / Yüksek / Acil öncelik; acil adresler rotada öne alınır. Kapasite aşımı ve coğrafi anomali (yanlış geocode) tespiti yapan güvenlik denetçisi.
-- 🛡️ **Kurumsal Güvenlik & Hata Toleransı** — Katı Excel dosya doğrulaması (uzantı/MIME/boyut), XSS & formül-enjeksiyonu temizliği, React/Next.js hata sınırları (beyaz ekran koruması) ve bozulmaya dayanıklı güvenli localStorage.
+- ♿ **Erişilebilir & Sade Tasarım** — Okunabilirlik için tasarlanmış **Lexend** yazı tipi, klavye odak halkaları (`:focus-visible`), `prefers-reduced-motion` desteği ve WCAG-uyumlu renk kontrastları.
+- 🛡️ **Kurumsal Güvenlik & Hata Toleransı** — Katı dosya doğrulaması (uzantı/MIME/boyut), XSS & Excel formül-enjeksiyonu temizliği, React/Next.js hata sınırları (beyaz ekran koruması) ve bozulmaya dayanıklı güvenli localStorage.
 
 ---
 
@@ -62,7 +63,7 @@ Sonuç: **daha az yakıt, daha az CO₂, daha az zaman ve tam izlenebilirlik.**
 | Yönetici Komuta Merkezi | Mobil Şoför Arayüzü |
 | :---: | :---: |
 | [![Admin Dashboard Ekranı](docs/dashboard.png)](docs/dashboard.png) | [![Mobil Şoför Arayüzü](docs/mobile.png)](docs/mobile.png) |
-| *Akıllı Şehir Komuta Merkezi — KPI kartları, harita, rota konsolu* | *Kurye standardında saha arayüzü — navigasyon & teslim kanıtı* |
+| *Yönetici paneli — özet sayılar, harita, rota konsolu, canlı takip* | *Kurye standardında saha arayüzü — navigasyon & canlı konum* |
 
 > 📌 Görselleri `docs/` klasörüne `dashboard.png` ve `mobile.png` olarak ekleyin; bağlantılar otomatik çalışır.
 
@@ -74,12 +75,14 @@ Sonuç: **daha az yakıt, daha az CO₂, daha az zaman ve tam izlenebilirlik.**
 | --- | --- | --- |
 | **Frontend / Framework** | Next.js 16 (App Router, Turbopack), React 19 | SSR-güvenli sayfa/route yapısı, sunucu proxy'leri |
 | **Dil** | TypeScript 5 | Uçtan uca tip güvenliği |
-| **Stil / UI** | Tailwind CSS 4, lucide-react, glassmorphism | Kurumsal SaaS & komuta merkezi estetiği |
-| **Harita** | Leaflet + react-leaflet 5 | Etkileşimli harita, özel `divIcon` marker'lar, polyline'lar |
+| **Stil / UI** | Tailwind CSS 4, lucide-react, Lexend | Aydınlık, ferah ve erişilebilir kurumsal SaaS estetiği |
+| **Harita** | Leaflet + react-leaflet 5 | Etkileşimli harita, özel `divIcon` marker'lar, polyline'lar, canlı şoför pini |
 | **Rota Motoru (Routing)** | OSRM (Trip API = TSP, Route API = sıra koruma) | Rota optimizasyonu & geometri/mesafe/süre |
-| **Geocoding** | OpenStreetMap Nominatim (sunucu proxy) | Adres → koordinat, mahalle-merkezi fallback |
+| **Geocoding** | Google → Yandex → Nominatim (sunucu proxy, cascade) | Adres → koordinat; sağlayıcı zinciri + mahalle-merkezi fallback |
+| **PDF Okuma** | pdfjs-dist (sunucu tarafı metin çıkarımı) | PDF listelerinden adres/sütun ayrıştırma |
 | **Kümeleme (Clustering)** | Kapasite kısıtlı K-Means++ (Haversine) | Adresleri araçlara coğrafi olarak dağıtma |
 | **State Management** | Zustand 5 + persist (güvenli storage) | Global akış durumu, kalıcılık ve göç (migration) |
+| **Canlı Paylaşım Deposu** | Upstash Redis (REST) · in-memory yedek | Paylaşım + canlı şoför konumu (24s TTL) |
 | **Sürükle-Bırak** | @hello-pangea/dnd | Rota durak sırası düzenleme |
 | **Excel G/Ç** | SheetJS (xlsx) | Güvenli içe/dışa aktarma, formül-enjeksiyonu koruması |
 | **PWA / Offline** | Web App Manifest + Service Worker | Kurulabilirlik & çevrimdışı çalışma |
@@ -87,37 +90,37 @@ Sonuç: **daha az yakıt, daha az CO₂, daha az zaman ve tam izlenebilirlik.**
 **Mimari akış:**
 
 ```
-Excel Yükle ─▶ Sanitize (fuzzy/Türkçe) ─▶ Geocode (Nominatim proxy)
-     │                                              │
-     ▼                                              ▼
+Excel / PDF / Elle Giriş ─▶ Sanitize (fuzzy/Türkçe) ─▶ Geocode (Google→Yandex→OSM)
+     │                                                          │
+     ▼                                                          ▼
 K-Means Kümeleme (kapasite) ─▶ OSRM TSP Optimizasyon ─▶ Harita + Rota Konsolu
                                                           │
                                        ┌──────────────────┴───────────────────┐
                                        ▼                                       ▼
-                          Şoför Mobil Arayüzü                       Gün Sonu Excel Raporu
-                    (navigasyon · teslim kanıtı · offline)          (durum · araç/sıra sütunları)
+                     Şoför Mobil Arayüzü + Canlı Konum          Yönetici Canlı Takip + Excel Rapor
+                  (Google/Yandex/Apple navigasyon · offline)     (harita · durum · araç/sıra sütunları)
 ```
 
-> ⚙️ Tarayıcının Nominatim/OSRM'e doğrudan `User-Agent` gönderememesi ve CORS kısıtları, Next.js **API route proxy'leri** (`/api/geocode`, `/api/route-optimize`) ile aşılmıştır.
+> ⚙️ Tarayıcının Nominatim/OSRM'e doğrudan `User-Agent` gönderememesi, CORS kısıtları ve **API anahtarlarının gizliliği**, Next.js **API route proxy'leriyle** (`/api/geocode`, `/api/route-optimize`, `/api/pdf-addresses`, `/api/share`) aşılmıştır.
 
 ---
 
-## 📡 Canlı Şoför Paylaşımı (Live Route Sharing)
+## 📡 Canlı Şoför Paylaşımı & Takibi (Live Sync + Tracking)
 
 Rotalar tarayıcıda (Zustand + `localStorage`) tutulduğu için, ham şoför linki yalnızca aynı cihazda çalışır. **Canlı Paylaşım** bu sınırı, hafif bir sunucu paylaşım katmanıyla kaldırır:
 
 ```
 Yönetici ──"Canlı Paylaşım Başlat"──▶ POST /api/share ──▶ paylaşım deposu ──▶ shareId
    ▲                                                                            │
-   │  ~4 sn'de bir yoklama (canlı teslim durumu)              QR / link: /driver/<araç>?sid=<shareId>
+   │  ~4 sn'de bir yoklama (canlı durum + şoför konumu)      QR / link: /driver/<araç>?sid=<shareId>
    │                                                                            │
-   └───────────────── GET /api/share/<id> ◀── PATCH (teslim ettim / evde yok) ─┘ ◀── Şoför (telefon)
+   └──────── GET /api/share/<id> ◀── PATCH (teslim ettim · evde yok · konumum) ─┘ ◀── Şoför (telefon)
 ```
 
-- **Yayınla:** Yönetici panelindeki 4. adımda "Canlı Paylaşımı Başlat" → mevcut rotalar (teslim kanıtı **görselleri arındırılmış** olarak) sunucuya yazılır, kısa bir `shareId` üretilir.
+- **Yayınla:** Yönetici panelindeki 4. adımda "Canlı Paylaşımı Başlat" → mevcut rotalar sunucuya yazılır, kısa bir `shareId` üretilir.
 - **Aç:** QR/link `?sid=<shareId>` taşır; şoför herhangi bir telefonda açar, rota sunucudan yüklenir.
-- **Senkron:** Şoför bir teslimatı işaretlediğinde `PATCH` ile sunucuya yazılır; yönetici paneli kısa aralıklı yoklama (polling) ile durumu **canlı** gösterir.
-- **Gizlilik:** İmza/fotoğraf gibi teslim kanıtı **görselleri sunucuya gönderilmez**; yalnızca "kanıt alındı" bilgisi ve teslim durumu senkronlanır.
+- **Canlı durum:** Şoför bir teslimatı işaretlediğinde `PATCH` ile sunucuya yazılır; yönetici paneli kısa aralıklı yoklamayla durumu **canlı** gösterir.
+- **Canlı konum:** Şoför "Canlı Konumu Paylaş"ı açtığında GPS konumu düzenli aralıklarla sunucuya gönderilir ve yöneticinin **canlı takip haritasında** atım animasyonlu pinle görünür. Durak ve konum güncellemeleri birbirini ezmez.
 
 ### Depolama modları
 
@@ -126,33 +129,25 @@ Yönetici ──"Canlı Paylaşım Başlat"──▶ POST /api/share ──▶ p
 | **Kalıcı (önerilen)** | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` tanımlı | Upstash Redis REST üzerinden; Vercel gibi çok-örnekli ortamda güvenilir çalışır. Paylaşımlar 24 saat sonra otomatik silinir. |
 | **Geçici (yedek)** | Env tanımlı değil | Sunucu belleğinde (in-memory). Tek süreçli `npm run dev` ile telefon testi için yeterlidir; sunucu yeniden başlarsa kaybolur. |
 
-### Ücretsiz kalıcı depolama (Upstash) kurulumu
-
-1. [upstash.com](https://upstash.com) → ücretsiz hesap → **Create Database** (Redis).
-2. Veritabanı sayfasında **REST API** sekmesinden `UPSTASH_REDIS_REST_URL` ve `UPSTASH_REDIS_REST_TOKEN` değerlerini kopyalayın.
-3. Yerelde `.env.local` dosyasına ekleyin; Vercel'de **Project Settings → Environment Variables** altına ekleyip yeniden deploy edin.
-
-> 📱 **Aynı Wi-Fi ile hızlı test:** Deploy etmeden telefonla denemek için sunucuyu ağa açın (`npm run dev -- -H 0.0.0.0`) ve QR yerine bilgisayarınızın LAN IP'siyle (`http://192.168.x.x:3000/...`) açın. Kalıcı ve her yerden erişim için Vercel'e deploy önerilir.
-
 ---
 
 ## 🚀 Kurulum ve Çalıştırma (Getting Started)
 
 ### Ön Gereksinimler
 
-- **Node.js 18.18+** (20 LTS önerilir) ve **npm**
+- **Node.js 20 LTS+** (Node 22 önerilir — PDF motoru için) ve **npm**
 
 ### Adımlar
 
 ```bash
 # 1) Depoyu klonlayın
-git clone https://github.com/<kullanici-adi>/social-aid-routing-system.git
+git clone https://github.com/mustafanazli/social-aid-routing-system.git
 cd social-aid-routing-system
 
 # 2) Bağımlılıkları yükleyin
 npm install
 
-# 3) Ortam değişkenlerini hazırlayın (opsiyonel — tanımlanmazsa public servisler kullanılır)
+# 3) Ortam değişkenlerini hazırlayın (opsiyonel — tanımlanmazsa public/OSM servisler kullanılır)
 cp .env.example .env.local
 #   Windows PowerShell için: Copy-Item .env.example .env.local
 
@@ -164,9 +159,7 @@ Ardından tarayıcıdan **[http://localhost:3000](http://localhost:3000)** adres
 
 ### 🖱️ Windows'ta Tek Tıkla Çalıştırma
 
-Terminalle uğraşmak istemeyenler için proje kökünde bir **`start-app.cmd`** başlatıcısı vardır. Çift tıklandığında: gerekiyorsa bağımlılıkları kurar, geliştirme sunucusunu başlatır ve birkaç saniye içinde tarayıcıda `localhost:3000`'i açar.
-
-> 💡 Masaüstüne kısayol: `start-app.cmd` dosyasına sağ tıklayın → **Kısayol oluştur** → kısayolu masaüstüne taşıyın. (İsterseniz kısayolun simgesini `src/app/favicon.ico` yapabilirsiniz.)
+Terminalle uğraşmak istemeyenler için proje kökünde bir **`start-app.cmd`** başlatıcısı vardır. Çift tıklandığında gerekiyorsa bağımlılıkları kurar, geliştirme sunucusunu başlatır ve tarayıcıda `localhost:3000`'i açar.
 
 ### 🔐 Ortam Değişkenleri (Environment Variables)
 
@@ -175,12 +168,22 @@ Tümü **opsiyoneldir**; tanımlanmazsa genel (public) demo servisleri kullanıl
 | Değişken | Açıklama | Varsayılan |
 | --- | --- | --- |
 | `NEXT_PUBLIC_OSRM_URL` | OSRM rota optimizasyon sunucusu | `https://router.project-osrm.org` |
-| `NEXT_PUBLIC_NOMINATIM_URL` | Nominatim geocoding uç noktası | `https://nominatim.openstreetmap.org/search` |
+| `NEXT_PUBLIC_NOMINATIM_URL` | Nominatim geocoding uç noktası (son çare) | `https://nominatim.openstreetmap.org/search` |
 | `NEXT_PUBLIC_NOMINATIM_RATE_LIMIT_MS` | Geocoding istekleri arası min. gecikme (ms) | `1000` |
+| `GOOGLE_MAPS_API_KEY` | Google Geocoding API anahtarı — **sunucu tarafı** otomatik konumlama (1. sağlayıcı) | _(boş → atlanır)_ |
+| `YANDEX_GEOCODER_API_KEY` | Yandex Geocoder HTTP API anahtarı — **sunucu tarafı** (2. sağlayıcı) | _(boş → atlanır)_ |
 | `UPSTASH_REDIS_REST_URL` | Canlı paylaşım için Upstash Redis REST adresi (sunucu tarafı) | _(boş → in-memory)_ |
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST erişim jetonu (sunucu tarafı, gizli) | _(boş → in-memory)_ |
 
-> ⚠️ **Üretim notu:** Genel OSRM/Nominatim sunucuları oran-limitlidir ve SLA garantisi vermez. Ölçekli kullanımda kendi OSRM ve Nominatim örneklerinizi kurup bu değişkenlerle bağlamanız önerilir. `NEXT_PUBLIC_` ön ekli değişkenler tarayıcıya gömülür — buraya gizli anahtar koymayın. `UPSTASH_*` değişkenleri ise **sunucu tarafı gizli** değerlerdir; tanımlanmazsa canlı paylaşım geçici (in-memory) moda düşer.
+> ⚠️ **Güvenlik notu:** `NEXT_PUBLIC_` ön ekli değişkenler tarayıcıya gömülür — buraya **asla gizli anahtar koymayın**. `GOOGLE_MAPS_API_KEY`, `YANDEX_GEOCODER_API_KEY` ve `UPSTASH_*` değişkenleri **ön eksizdir**; yalnızca sunucuda okunur ve tarayıcıya sızmaz. Geocoding anahtarlarından hiçbiri tanımlı değilse sistem yalnızca OpenStreetMap ile çalışır.
+
+### ▲ Vercel'e Deploy
+
+1. Bu depoyu [vercel.com](https://vercel.com) → **New Project** ile içe aktarın (Next.js otomatik algılanır; ek yapılandırma gerekmez).
+2. **Project Settings → Environment Variables** altına yukarıdaki gizli değişkenleri ekleyin (`GOOGLE_MAPS_API_KEY`, `YANDEX_GEOCODER_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`).
+3. **Deploy** — sunucu fonksiyonları [`vercel.json`](vercel.json) ile Türkiye'ye en yakın **Frankfurt (fra1)** bölgesinde çalışır.
+
+> API anahtarları alma: **Google** — [console.cloud.google.com](https://console.cloud.google.com) → "Geocoding API" etkinleştir → anahtar (faturalandırma açık, aylık 200$ ücretsiz kredi). **Yandex** — [developer.tech.yandex.ru](https://developer.tech.yandex.ru) → "Geocoder HTTP API" ücretsiz anahtar. **Upstash** — [upstash.com](https://upstash.com) → Redis DB → "REST API" sekmesi.
 
 ### Kullanılabilir Komutlar
 
@@ -198,13 +201,14 @@ npm run lint     # ESLint denetimi
 ```
 src/
 ├── app/                 # App Router: sayfalar, API proxy'leri, hata sınırları
-│   ├── api/geocode/         # Nominatim proxy
+│   ├── api/geocode/         # Çok sağlayıcılı geocoding (Google→Yandex→OSM)
 │   ├── api/route-optimize/  # OSRM proxy (TSP + sıra koruma)
-│   ├── api/share/           # Canlı şoför paylaşımı (yayınla / oku / güncelle)
+│   ├── api/pdf-addresses/   # PDF'ten adres çıkarma (pdfjs)
+│   ├── api/share/           # Canlı paylaşım + şoför konumu (yayınla / oku / güncelle)
 │   └── driver/[routeId]/    # Şoför mobil ekranı
 ├── components/          # UI (map, route, driver, excel, common)
-├── lib/                # Algoritmalar: clustering, priority, security, validator...
-├── services/           # nominatimService, osrmService
+├── lib/                # Algoritmalar: clustering, security, validator, pdfImport...
+├── services/           # nominatimService, osrmService, shareService
 ├── store/              # Zustand global state (güvenli persist)
 ├── hooks/              # useCountUp, useCurrentLocation, useOnlineStatus...
 └── constants/          # config, mahalle verisi

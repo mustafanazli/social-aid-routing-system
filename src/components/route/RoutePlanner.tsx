@@ -17,7 +17,6 @@ import { useDeliveryStore } from '@/store/useDeliveryStore';
 import { useHasHydrated } from '@/hooks/useHasHydrated';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { clusterLocations, hasValidCoords } from '@/lib/clustering';
-import { applyPriorityOrder, priorityOf } from '@/lib/priority';
 import { validateRoutes, type RouteAnomaly } from '@/lib/routeValidator';
 import {
   optimizeRoute,
@@ -149,31 +148,6 @@ export default function RoutePlanner() {
             totalDistanceKm: 0,
             totalDurationMinutes: 0,
           };
-        }
-
-        // Öncelik: "Acil" adresleri öne al (coğrafi optimize sırayı katman
-        // içinde koruyarak). Sıra değişirse polyline'ı tutarlı tutmak için
-        // geometri yeniden hesaplanır.
-        const hasPriority = cluster.some((l) => priorityOf(l) !== 'NORMAL');
-        if (hasPriority) {
-          const { ordered, changed } = applyPriorityOrder(
-            result.orderedLocations,
-          );
-          if (changed) {
-            try {
-              const geo = await fetchRouteGeometry(ordered, origin);
-              result = {
-                orderedLocations: ordered,
-                geometry: geo.geometry,
-                totalDistanceKm: geo.totalDistanceKm,
-                totalDurationMinutes: geo.totalDurationMinutes,
-              };
-              await delay(300);
-            } catch {
-              // Yeniden hesap başarısız → yalnızca sırayı uygula.
-              result = { ...result, orderedLocations: ordered };
-            }
-          }
         }
 
         newRoutes.push(buildRoute(vehicle, cluster, result));

@@ -1,10 +1,9 @@
 'use client';
 
 import { Draggable } from '@hello-pangea/dnd';
-import { GripVertical, MapPin, Package, AlertTriangle } from 'lucide-react';
+import { GripVertical, MapPin, Package } from 'lucide-react';
 
 import type { StopItem } from '@/types/fleet';
-import { priorityOf } from '@/lib/priority';
 
 interface DraggableStopItemProps {
   vehicleId: string;
@@ -52,13 +51,7 @@ export default function DraggableStopItem({
           </span>
 
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 truncate text-sm font-medium text-slate-800">
-              {priorityOf(location) === 'URGENT' && (
-                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
-                  <AlertTriangle className="h-2.5 w-2.5" />
-                  ACİL
-                </span>
-              )}
+            <p className="truncate text-sm font-medium text-slate-800">
               {location.recipientName || 'İsimsiz alıcı'}
             </p>
             <p className="truncate text-xs text-slate-500">

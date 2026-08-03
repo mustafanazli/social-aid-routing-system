@@ -40,6 +40,29 @@ export const NOMINATIM_RATE_LIMIT_MS = Number(
 );
 
 /**
+ * Otomatik konumlandırma sağlayıcıları (SUNUCU TARAFI — anahtarlar tarayıcıya
+ * sızmaması için NEXT_PUBLIC_ ÖNEKSİZ tutulur; sadece /api/geocode okur).
+ *
+ * Sıra: Yandex → Google → OpenStreetMap (Nominatim, son çare, anahtarsız).
+ * Bir sağlayıcının anahtarı yoksa o adım otomatik atlanır; sistem çökmez.
+ *
+ * Anahtar alma:
+ *  - Yandex : https://developer.tech.yandex.ru → "Geocoder API" (JavaScript API
+ *             ve HTTP Geocoder) ücretsiz anahtar (kredi kartı gerekmez).
+ *  - Google : https://console.cloud.google.com → "Geocoding API" etkinleştir →
+ *             API anahtarı oluştur (faturalandırma açık olmalı; aylık 200$ kredi).
+ * Anahtarları proje kökündeki `.env.local` dosyasına yaz:
+ *   YANDEX_GEOCODER_API_KEY=...
+ *   GOOGLE_MAPS_API_KEY=...
+ */
+export const YANDEX_GEOCODER_API_KEY = process.env.YANDEX_GEOCODER_API_KEY ?? '';
+export const YANDEX_GEOCODER_URL = 'https://geocode-maps.yandex.ru/1.x/';
+
+export const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY ?? '';
+export const GOOGLE_GEOCODER_URL =
+  'https://maps.googleapis.com/maps/api/geocode/json';
+
+/**
  * OSRM public routing servisi (Trip & Route API).
  * Üretimde kendi OSRM sunucunuzu `.env` ile tanımlamanız önerilir.
  */

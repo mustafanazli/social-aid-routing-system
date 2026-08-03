@@ -1,60 +1,47 @@
 @import "tailwindcss";
 
 :root {
-  --background: #eef2f7; /* açık kurumsal zemin */
+  --background: #f6f8fb; /* açık, ferah zemin */
   --foreground: #0f172a; /* slate-900 */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-lexend);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-lexend), system-ui, Arial, Helvetica, sans-serif;
+  /* Skill §6: rahat okunur satır yüksekliği + yumuşatma. */
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* ---- Komuta merkezi arka planı: ince ızgara + hafif ışıma ---- */
-.command-bg {
-  background-color: #0b1220;
-  background-image:
-    radial-gradient(
-      1000px 500px at 15% -10%,
-      rgba(29, 78, 216, 0.25),
-      transparent 60%
-    ),
-    radial-gradient(
-      900px 500px at 100% 0%,
-      rgba(5, 150, 105, 0.18),
-      transparent 55%
-    ),
-    linear-gradient(
-      to right,
-      rgba(148, 163, 184, 0.06) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      to bottom,
-      rgba(148, 163, 184, 0.06) 1px,
-      transparent 1px
-    );
-  background-size:
-    auto,
-    auto,
-    28px 28px,
-    28px 28px;
+/* Skill §1 (Accessibility · focus-states): klavye kullanıcıları için görünür
+   odak halkası. Fare tıklamasında çıkmaz (:focus-visible), sekme ile gezerken
+   belirir — inputlardaki focus:outline-none'ı güvenle telafi eder. */
+:focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
-/* ---- Cam efekti (glassmorphism) ---- */
-.glass {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+/* Skill §7 (Animation · reduced-motion): hareket hassasiyeti olan kullanıcılar
+   için tüm animasyon/geçişleri neredeyse kapat. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ---- Animasyonlar ---- */
@@ -70,20 +57,6 @@ body {
 }
 .animate-fade-in-up {
   animation: fade-in-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes feed-in {
-  from {
-    opacity: 0;
-    transform: translateX(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-.animate-feed-in {
-  animation: feed-in 0.4s ease-out both;
 }
 
 /* Başlangıç konumu marker'ı — yanıp sönen mavi nokta. */
@@ -121,31 +94,44 @@ body {
   }
 }
 
-/* "Acil" durak pini üzerindeki titreyen kırmızı rozet. */
-.urgent-badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #dc2626;
-  border: 2px solid #ffffff;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 12px;
-  text-align: center;
-  box-shadow: 0 0 0 rgba(220, 38, 38, 0.7);
-  animation: urgent-blink 1.1s ease-in-out infinite;
+/* ---- Canlı şoför konumu pini (araç renginde, atım animasyonlu) ---- */
+.driver-live {
+  position: relative;
+  width: 34px;
+  height: 34px;
 }
-@keyframes urgent-blink {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+.driver-live__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--c, #059669);
+  opacity: 0.4;
+  animation: driver-ping 1.5s ease-out infinite;
+}
+.driver-live__dot {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--c, #059669);
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+}
+@keyframes driver-ping {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.6;
   }
-  50% {
-    box-shadow: 0 0 0 6px rgba(220, 38, 38, 0);
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
   }
 }
 

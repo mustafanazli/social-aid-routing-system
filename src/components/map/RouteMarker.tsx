@@ -5,7 +5,6 @@ import L from 'leaflet';
 import { Marker, Popup } from 'react-leaflet';
 
 import type { GeocodedLocation } from '@/types/address';
-import { priorityOf } from '@/lib/priority';
 
 interface RouteMarkerProps {
   location: GeocodedLocation;
@@ -31,8 +30,7 @@ function markerColor(location: GeocodedLocation): string {
  * Numaralandırılmış, renk kodlu damla (teardrop) pin.
  * L.divIcon kullanıldığı için Leaflet'in varsayılan PNG asset'lerine gerek yoktur.
  */
-function buildIcon(color: string, order: number, urgent: boolean): L.DivIcon {
-  const urgentBadge = urgent ? `<span class="urgent-badge">!</span>` : '';
+function buildIcon(color: string, order: number): L.DivIcon {
   const html = `
     <div style="
       position: relative;
@@ -56,15 +54,16 @@ function buildIcon(color: string, order: number, urgent: boolean): L.DivIcon {
         color: #ffffff; font-size: 12px; font-weight: 700;
         font-family: system-ui, -apple-system, sans-serif;
       ">${order}</span>
-      ${urgentBadge}
     </div>`;
 
   return L.divIcon({
     html,
     className: 'pendik-pin', // varsayılan leaflet-div-icon stilini iptal eder
     iconSize: [30, 40],
-    iconAnchor: [15, 40],
-    popupAnchor: [0, -38],
+    // Damlanın sivri ucu -45° dönüş sonrası y≈36px'de kalır; koordinatın tam
+    // üstüne otursun diye anchor ucun kendisine (15, 36) sabitlenir.
+    iconAnchor: [15, 36],
+    popupAnchor: [0, -34],
   });
 }
 
@@ -76,11 +75,7 @@ export default function RouteMarker({
   draggable = true,
 }: RouteMarkerProps) {
   const color = colorOverride ?? markerColor(location);
-  const isUrgent = priorityOf(location) === 'URGENT';
-  const icon = useMemo(
-    () => buildIcon(color, order, isUrgent),
-    [color, order, isUrgent],
-  );
+  const icon = useMemo(() => buildIcon(color, order), [color, order]);
 
   const statusLabel =
     location.geocodingStatus === 'MANUAL'
@@ -124,20 +119,6 @@ export default function RouteMarker({
               marginTop: 8,
             }}
           >
-            {isUrgent && (
-              <span
-                style={{
-                  background: '#fee2e2',
-                  color: '#b91c1c',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: 999,
-                }}
-              >
-                ⚠ ACİL
-              </span>
-            )}
             {location.neighborhood && (
               <span
                 style={{
