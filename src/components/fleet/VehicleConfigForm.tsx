@@ -40,6 +40,39 @@ export default function VehicleConfigForm({
     () => vehicleConfigs[0]?.capacity ?? 40,
   );
 
+  // Input'ların HAM metni: kullanıcı serbestçe silip yazabilsin (boş kalabilir);
+  // sayı yalnızca odaktan çıkınca (blur) geçerli aralığa normalize edilir.
+  const [countText, setCountText] = useState(String(count));
+  const [capacityText, setCapacityText] = useState(String(capacity));
+
+  const handleCountChange = (raw: string) => {
+    setCountText(raw);
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n) && n >= MIN_VEHICLES && n <= MAX_VEHICLES) {
+      setCount(n);
+    }
+  };
+  const handleCountBlur = () => {
+    const n = parseInt(countText, 10);
+    const clamped = Number.isFinite(n)
+      ? Math.min(MAX_VEHICLES, Math.max(MIN_VEHICLES, n))
+      : MIN_VEHICLES;
+    setCount(clamped);
+    setCountText(String(clamped));
+  };
+
+  const handleCapacityChange = (raw: string) => {
+    setCapacityText(raw);
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n) && n >= 1) setCapacity(n);
+  };
+  const handleCapacityBlur = () => {
+    const n = parseInt(capacityText, 10);
+    const normalized = Number.isFinite(n) && n >= 1 ? n : 1;
+    setCapacity(normalized);
+    setCapacityText(String(normalized));
+  };
+
   // count/capacity değiştikçe araç konfigürasyonlarını yeniden üret ve store'a yaz.
   useEffect(() => {
     const configs: VehicleConfig[] = Array.from({ length: count }, (_, i) => ({
@@ -66,15 +99,12 @@ export default function VehicleConfigForm({
           </span>
           <input
             type="number"
+            inputMode="numeric"
             min={MIN_VEHICLES}
             max={MAX_VEHICLES}
-            value={count}
-            onChange={(e) => {
-              const v = Math.round(Number(e.target.value));
-              if (Number.isFinite(v)) {
-                setCount(Math.min(MAX_VEHICLES, Math.max(MIN_VEHICLES, v)));
-              }
-            }}
+            value={countText}
+            onChange={(e) => handleCountChange(e.target.value)}
+            onBlur={handleCountBlur}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
           />
         </label>
@@ -87,12 +117,11 @@ export default function VehicleConfigForm({
           </span>
           <input
             type="number"
+            inputMode="numeric"
             min={1}
-            value={capacity}
-            onChange={(e) => {
-              const v = Math.round(Number(e.target.value));
-              if (Number.isFinite(v)) setCapacity(Math.max(1, v));
-            }}
+            value={capacityText}
+            onChange={(e) => handleCapacityChange(e.target.value)}
+            onBlur={handleCapacityBlur}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
           />
         </label>
