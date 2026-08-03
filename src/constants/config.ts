@@ -29,12 +29,32 @@ export const PENDIK_VIEWBOX = {
 } as const;
 
 /**
+ * Ortam değişkeninden gelen URL'yi temizler. Panolardan/README'den kopyalanan
+ * değerler bazen Markdown link biçiminde ("[https://x](https://x)") ya da
+ * baş/son boşluk/tırnakla gelir; bu, sunucu tarafı `fetch`'te "Failed to parse
+ * URL" hatasına yol açar. Geçerli http(s) çıkaramazsak güvenli varsayılana düşer.
+ */
+function cleanEnvUrl(raw: string | undefined, fallback: string): string {
+  if (!raw) return fallback;
+  let v = raw.trim().replace(/^['"]|['"]$/g, '');
+  // Markdown link: "[metin](url)" → url
+  const md = v.match(/\((https?:\/\/[^)]+)\)/);
+  if (md) v = md[1];
+  // Değerin herhangi bir yerindeki ilk http(s) URL'sini yakala.
+  const m = v.match(/https?:\/\/[^\s\])'"]+/);
+  v = m ? m[0] : v;
+  v = v.replace(/\/+$/, ''); // sondaki eğik çizgileri at
+  return /^https?:\/\//.test(v) ? v : fallback;
+}
+
+/**
  * OpenStreetMap Nominatim geocoding servisi. Saniyede maks. 1 istek.
  * `.env` üzerinden özel/self-hosted bir Nominatim adresiyle değiştirilebilir.
  */
-export const NOMINATIM_BASE_URL =
-  process.env.NEXT_PUBLIC_NOMINATIM_URL ??
-  'https://nominatim.openstreetmap.org/search';
+export const NOMINATIM_BASE_URL = cleanEnvUrl(
+  process.env.NEXT_PUBLIC_NOMINATIM_URL,
+  'https://nominatim.openstreetmap.org/search',
+);
 export const NOMINATIM_RATE_LIMIT_MS = Number(
   process.env.NEXT_PUBLIC_NOMINATIM_RATE_LIMIT_MS ?? 1000,
 );
@@ -66,8 +86,10 @@ export const GOOGLE_GEOCODER_URL =
  * OSRM public routing servisi (Trip & Route API).
  * Üretimde kendi OSRM sunucunuzu `.env` ile tanımlamanız önerilir.
  */
-export const OSRM_BASE_URL =
-  process.env.NEXT_PUBLIC_OSRM_URL ?? 'https://router.project-osrm.org';
+export const OSRM_BASE_URL = cleanEnvUrl(
+  process.env.NEXT_PUBLIC_OSRM_URL,
+  'https://router.project-osrm.org',
+);
 
 /** Araçlara otomatik atanacak ayırt edici renk paleti (marker & polyline). */
 export const VEHICLE_COLOR_PALETTE: string[] = [
