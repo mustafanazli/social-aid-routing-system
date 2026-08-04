@@ -1,0 +1,26 @@
+# Pendik Sosyal Yardım Dağıtım & Rota Sistemi — yerel/self-host çalıştırma.
+#
+# Kullanım:
+#   docker compose up --build         → derle ve başlat (http://localhost:3000)
+#   docker compose up -d              → arka planda
+#   docker compose down               → durdur
+#
+# Sunucu tarafı anahtarlar (Google/Yandex/Upstash) .env.local'den okunur; yoksa
+# uygulama anahtarsız modda (OSM/Nominatim + in-memory paylaşım) çalışır.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pendik-rota-sistemi
+    container_name: pendik-rota-sistemi
+    ports:
+      - "3000:3000"
+    env_file:
+      # Varsa gizli anahtarları yükle; yoksa hata verme (opsiyonel).
+      - path: .env.local
+        required: false
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped

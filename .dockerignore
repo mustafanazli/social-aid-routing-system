@@ -1,0 +1,28 @@
+# Derleme çıktıları & bağımlılıklar (imajda yeniden üretilir)
+node_modules
+.next
+out
+
+# Sürüm kontrolü & editör
+.git
+.gitignore
+.vscode
+.idea
+
+# Ortam dosyaları — gizli anahtarlar imaja SIZMASIN (runtime'da env ile verilir)
+.env
+.env.*
+!.env.example
+
+# Docker & CI dosyaları
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Belgeler & günlükler (imajda gerekmez)
+*.md
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+coverage
+.vercel
