@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil, Trash2, Check, X, MapPin } from 'lucide-react';
+import { Pencil, Trash2, Check, X, MapPin, Clock } from 'lucide-react';
 
 import { useDeliveryStore } from '@/store/useDeliveryStore';
 import type { SanitizedAddress } from '@/types/address';
@@ -101,9 +101,17 @@ export default function AddressPreviewTable() {
                       className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-emerald-500 focus:outline-none"
                     />
                   ) : (
-                    <span className="font-medium text-slate-800">
-                      {a.recipientName || '—'}
-                    </span>
+                    <div>
+                      <span className="font-medium text-slate-800">
+                        {a.recipientName || '—'}
+                      </span>
+                      {a.timeWindow && (
+                        <span className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-violet-600">
+                          <Clock className="h-3 w-3" />
+                          {a.timeWindow}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </td>
 

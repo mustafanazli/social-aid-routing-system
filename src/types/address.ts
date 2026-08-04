@@ -11,6 +11,8 @@ export interface RawExcelRow {
   daireNo?: string;
   acikAdres: string;
   koliSayisi?: number;
+  /** İsteğe bağlı ziyaret saati aralığı, ör. "09:00-12:00". */
+  ziyaretSaati?: string;
   /** Excel'de hazır koordinat varsa (ör. daha önce elle düzeltilip dışa aktarılmış). */
   lat?: number;
   lng?: number;
@@ -28,6 +30,12 @@ export interface SanitizedAddress {
   recipientName: string;
   phone: string;
   boxCount: number;
+  /**
+   * İsteğe bağlı ziyaret zaman penceresi, ör. "09:00-12:00". Bazı haneler
+   * (yaşlı/engelli) yalnızca belirli saatlerde evde olur; rota ETA'sı bu
+   * pencereyle karşılaştırılıp uyumsuzluk uyarısı gösterilir.
+   */
+  timeWindow?: string;
   /**
    * Excel'den gelen hazır koordinat (varsa). Doluysa geocoding atlanır ve
    * konum doğrudan MANUAL olarak işaretlenir — daha önce elle düzeltilmiş

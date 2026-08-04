@@ -15,10 +15,17 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  CalendarClock,
 } from 'lucide-react';
 
 import type { VehicleRoute, StopItem } from '@/types/fleet';
 import DraggableStopItem from '@/components/route/DraggableStopItem';
+import {
+  computeStopEtas,
+  windowFit,
+  type Point,
+  type WindowFit,
+} from '@/lib/timeWindow';
 
 interface RouteListProps {
   routes: VehicleRoute[];
@@ -29,6 +36,17 @@ interface RouteListProps {
   onFocus: (vehicleId: string | null) => void;
   /** Sürükle-bırak sonrası yeni durak sırası. */
   onReorder: (vehicleId: string, newStops: StopItem[]) => void;
+  /** Rota başlangıç saati "HH:MM" — ziyaret penceresi ETA hesabı için. */
+  startTime?: string;
+  /** İsteğe bağlı başlangıç noktası (şoför/depo). */
+  origin?: Point | null;
+}
+
+/** "HH:MM" → gün-içi dakika (geçersizse 09:00). */
+function startMinutesFrom(hhmm: string | undefined): number {
+  const m = (hhmm ?? '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return 9 * 60;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
 }
 
 function formatKm(km: number): string {
@@ -49,7 +67,10 @@ export default function RouteList({
   focusedVehicleId,
   onFocus,
   onReorder,
+  startTime,
+  origin,
 }: RouteListProps) {
+  const startMinutes = startMinutesFrom(startTime);
   // Varsayılan: ilk araç açık.
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
     routes.length > 0 ? { [routes[0].vehicleId]: true } : {},
@@ -91,6 +112,20 @@ export default function RouteList({
           const isRecalculating = recalculatingVehicleId === route.vehicleId;
           const isFocused = focusedVehicleId === route.vehicleId;
 
+          // Ziyaret penceresi olan duraklar için tahmini varış (ETA) + uyum.
+          const etas = computeStopEtas(
+            route.stops.map((s) => ({
+              lat: s.location.lat,
+              lng: s.location.lng,
+            })),
+            { startMinutes, origin },
+          );
+          const fits: WindowFit[] = route.stops.map((s, i) =>
+            windowFit(etas[i], s.location.timeWindow),
+          );
+          const lateCount = fits.filter((f) => f === 'late').length;
+          const windowedCount = fits.filter((f) => f !== 'none').length;
+
           return (
             <div
               key={route.vehicleId}
@@ -128,6 +163,21 @@ export default function RouteList({
                         {formatMin(route.totalDurationMinutes)}
                       </span>
                       <span>{route.stops.length} durak</span>
+                      {windowedCount > 0 && (
+                        <span
+                          className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                            lateCount > 0
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}
+                          title="Ziyaret saati penceresi olan duraklar"
+                        >
+                          <CalendarClock className="h-2.5 w-2.5" />
+                          {lateCount > 0
+                            ? `${lateCount} pencere dışı`
+                            : `${windowedCount} pencere uyumlu`}
+                        </span>
+                      )}
                     </span>
                   </span>
                 </button>
@@ -188,6 +238,8 @@ export default function RouteList({
                             stop={stop}
                             index={index}
                             color={route.vehicleColor}
+                            etaMinutes={etas[index]}
+                            windowFit={fits[index]}
                           />
                         ))
                       )}

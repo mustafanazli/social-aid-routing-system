@@ -6,6 +6,7 @@ import {
 } from '@/constants/pendikNeighborhoods';
 import type { RawExcelRow, SanitizedAddress } from '@/types/address';
 import { generateId, normalizeTr } from '@/lib/utils';
+import { normalizeTimeWindow } from '@/lib/timeWindow';
 
 export interface SanitizeResult {
   /** Temizlenmiş ve ", Pendik, İstanbul, Türkiye" eki eklenmiş tam adres. */
@@ -194,6 +195,9 @@ export function rawRowToSanitized(row: RawExcelRow): SanitizedAddress {
       typeof row.koliSayisi === 'number' && row.koliSayisi > 0
         ? row.koliSayisi
         : 1,
+    ...(normalizeTimeWindow(row.ziyaretSaati)
+      ? { timeWindow: normalizeTimeWindow(row.ziyaretSaati) }
+      : {}),
     ...(hasPresetCoords
       ? { presetLat: row.lat, presetLng: row.lng }
       : {}),

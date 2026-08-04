@@ -84,6 +84,17 @@ const COLUMN_ALIASES: Record<keyof RawExcelFieldMap, string[]> = {
     'koli miktari',
     'paket sayisi',
   ],
+  ziyaretSaati: [
+    'ziyaret saati',
+    'ziyaret zamani',
+    'saat',
+    'saat araligi',
+    'zaman araligi',
+    'zaman penceresi',
+    'teslim saati',
+    'time window',
+    'time',
+  ],
   enlem: ['enlem', 'lat', 'latitude', 'y'],
   boylam: ['boylam', 'lng', 'lon', 'long', 'longitude', 'x'],
 };
@@ -97,6 +108,7 @@ interface RawExcelFieldMap {
   daireNo?: string;
   acikAdres?: string;
   koliSayisi?: string;
+  ziyaretSaati?: string;
   enlem?: string;
   boylam?: string;
 }
@@ -218,6 +230,9 @@ export async function parseExcelFile(file: File): Promise<RawExcelRow[]> {
       koliSayisi: mapping.koliSayisi
         ? parseBoxCount(row[mapping.koliSayisi])
         : 1,
+      ziyaretSaati: mapping.ziyaretSaati
+        ? cellToString(row[mapping.ziyaretSaati])
+        : '',
       ...(lat !== null && lng !== null ? { lat, lng } : {}),
       __rowKey: generateId('row'),
     };
@@ -245,6 +260,7 @@ export function downloadSampleTemplate(): void {
       'Daire No': 3,
       'Açık Adres': 'Fevzi Çakmak Mah. Selanik Sokak No:5 Daire 3',
       'Koli Sayısı': 2,
+      'Ziyaret Saati': '09:00-12:00',
     },
     {
       'Ad Soyad': 'Mehmet Demir',
@@ -255,6 +271,7 @@ export function downloadSampleTemplate(): void {
       'Daire No': 20,
       'Açık Adres': 'Fevzi Çakmak Mah. Tophane Sokak No:4A Daire 20',
       'Koli Sayısı': 1,
+      'Ziyaret Saati': '',
     },
     {
       'Ad Soyad': 'Fatma Kaya',
@@ -265,6 +282,7 @@ export function downloadSampleTemplate(): void {
       'Daire No': 5,
       'Açık Adres': 'Batı Mah. 23 Nisan Caddesi No:10 Daire 5',
       'Koli Sayısı': 3,
+      'Ziyaret Saati': '13:00-17:00',
     },
     {
       'Ad Soyad': 'Hasan Şahin',
@@ -275,6 +293,7 @@ export function downloadSampleTemplate(): void {
       'Daire No': 8,
       'Açık Adres': 'Kaynarca Mah. Barbaros Caddesi No:25 Daire 8',
       'Koli Sayısı': 1,
+      'Ziyaret Saati': '',
     },
     {
       'Ad Soyad': 'Zeynep Aydın',
@@ -285,6 +304,7 @@ export function downloadSampleTemplate(): void {
       'Daire No': 2,
       'Açık Adres': 'Güzelyalı Mah. Sahil Yolu Caddesi No:8 Daire 2',
       'Koli Sayısı': 2,
+      'Ziyaret Saati': '09:00-11:00',
     },
     {
       'Ad Soyad': 'Ali Öztürk',
@@ -295,6 +315,7 @@ export function downloadSampleTemplate(): void {
       'Daire No': 12,
       'Açık Adres': 'Dumlupınar Mah. İnönü Caddesi No:30 Daire 12',
       'Koli Sayısı': 1,
+      'Ziyaret Saati': '',
     },
     {
       'Ad Soyad': 'Emine Çelik',
@@ -305,6 +326,7 @@ export function downloadSampleTemplate(): void {
       'Daire No': 4,
       'Açık Adres': 'Yenişehir Mah. Dedepaşa Caddesi No:10 Daire 4',
       'Koli Sayısı': 2,
+      'Ziyaret Saati': '14:00-18:00',
     },
     {
       'Ad Soyad': 'Mustafa Arslan',
@@ -315,6 +337,7 @@ export function downloadSampleTemplate(): void {
       'Daire No': 1,
       'Açık Adres': 'Ertuğrul Gazi Mah. Bora Sokak No:3 Daire 1',
       'Koli Sayısı': 1,
+      'Ziyaret Saati': '',
     },
   ];
 
@@ -328,6 +351,7 @@ export function downloadSampleTemplate(): void {
     { wch: 9 }, // Daire No
     { wch: 44 }, // Açık Adres
     { wch: 11 }, // Koli Sayısı
+    { wch: 13 }, // Ziyaret Saati
   ];
 
   const workbook = XLSX.utils.book_new();
@@ -367,6 +391,7 @@ interface ReportRow {
   'Temizlenmiş Adres': string;
   Mahalle: string;
   'Koli Sayısı': number;
+  'Ziyaret Saati': string;
   Enlem: number | string;
   Boylam: number | string;
   'Dağıtım Durumu': string;
@@ -399,6 +424,7 @@ export function exportDeliveryReportToExcel(
         'Temizlenmiş Adres': escapeFormula(loc.cleanAddress),
         Mahalle: escapeFormula(loc.neighborhood),
         'Koli Sayısı': loc.boxCount,
+        'Ziyaret Saati': escapeFormula(loc.timeWindow ?? ''),
         Enlem: loc.lat,
         Boylam: loc.lng,
         'Dağıtım Durumu': stopStatusToTr(stop.status),
@@ -420,6 +446,7 @@ export function exportDeliveryReportToExcel(
       'Temizlenmiş Adres': escapeFormula(a.cleanAddress),
       Mahalle: escapeFormula(a.neighborhood),
       'Koli Sayısı': a.boxCount,
+      'Ziyaret Saati': escapeFormula(a.timeWindow ?? ''),
       Enlem: '',
       Boylam: '',
       'Dağıtım Durumu': 'Atanmadı',
@@ -438,6 +465,7 @@ export function exportDeliveryReportToExcel(
     { wch: 45 }, // Temizlenmiş Adres
     { wch: 16 }, // Mahalle
     { wch: 10 }, // Koli
+    { wch: 13 }, // Ziyaret Saati
     { wch: 11 }, // Enlem
     { wch: 11 }, // Boylam
     { wch: 22 }, // Durum

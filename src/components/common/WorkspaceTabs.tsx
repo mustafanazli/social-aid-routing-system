@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ComponentType } from 'react';
+import { type ComponentType } from 'react';
 import {
   Upload,
   MapPinned,
@@ -34,12 +34,15 @@ const TABS: TabDef[] = [
 /** Komuta konsolu — sekmeli iş akışı (Excel → Harita → Rota → Paylaşım). */
 export default function WorkspaceTabs() {
   const hydrated = useHasHydrated();
-  const [active, setActive] = useState(1);
 
   const sanitizedAddresses = useDeliveryStore((s) => s.sanitizedAddresses);
   const geocodedLocations = useDeliveryStore((s) => s.geocodedLocations);
   const routes = useDeliveryStore((s) => s.routes);
+  const activeStep = useDeliveryStore((s) => s.activeStep);
   const setActiveStep = useDeliveryStore((s) => s.setActiveStep);
+  // Aktif sekme store'dan sürülür → başka bileşenler (ör. "yeni dağıtıma taşı")
+  // setActiveStep ile sekme değiştirebilir. Hidrasyondan önce 1. sekme.
+  const active = hydrated ? activeStep : 1;
 
   const badgeFor = (id: number): number | null => {
     if (!hydrated) return null;
@@ -76,10 +79,7 @@ export default function WorkspaceTabs() {
             <button
               key={tab.id}
               type="button"
-              onClick={() => {
-                setActive(tab.id);
-                if (tab.id <= 4) setActiveStep(tab.id as 1 | 2 | 3 | 4);
-              }}
+              onClick={() => setActiveStep(tab.id as 1 | 2 | 3 | 4)}
               className={`group inline-flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition active:scale-95 ${
                 isActive
                   ? 'bg-emerald-600 text-white shadow-sm'

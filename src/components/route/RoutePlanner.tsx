@@ -11,6 +11,7 @@ import {
   ShieldAlert,
   MapPinOff,
   PackageX,
+  Clock,
 } from 'lucide-react';
 
 import { useDeliveryStore } from '@/store/useDeliveryStore';
@@ -29,6 +30,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner';
 import MapErrorBoundary from '@/components/common/MapErrorBoundary';
 import VehicleConfigForm from '@/components/fleet/VehicleConfigForm';
 import RouteList from '@/components/route/RouteList';
+import LoadBalanceBar from '@/components/route/LoadBalanceBar';
 import type { VehicleRoute, StopItem } from '@/types/fleet';
 import type { GeocodedLocation } from '@/types/address';
 
@@ -62,6 +64,8 @@ export default function RoutePlanner() {
     string | null
   >(null);
   const [focusedVehicleId, setFocusedVehicleId] = useState<string | null>(null);
+  // Rota başlangıç saati (ziyaret penceresi ETA hesabı için) — "HH:MM".
+  const [startTime, setStartTime] = useState('09:00');
   const [warning, setWarning] = useState<string | null>(null);
   const [quarantined, setQuarantined] = useState<GeocodedLocation[]>([]);
   const rehydratedRef = useRef(false);
@@ -491,13 +495,32 @@ export default function RoutePlanner() {
           )}
         </div>
 
-        <aside className="max-h-[30rem] overflow-y-auto p-4">
+        <aside className="max-h-[30rem] space-y-3 overflow-y-auto p-4">
+          {hasRoutes && (
+            <>
+              <LoadBalanceBar routes={routes} />
+              <label className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                  Rota başlangıç saati
+                </span>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value || '09:00')}
+                  className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 focus:border-emerald-500 focus:outline-none"
+                />
+              </label>
+            </>
+          )}
           <RouteList
             routes={hasRoutes ? routes : []}
             recalculatingVehicleId={recalculatingVehicleId}
             focusedVehicleId={focusedVehicleId}
             onFocus={setFocusedVehicleId}
             onReorder={handleReorder}
+            startTime={startTime}
+            origin={origin}
           />
         </aside>
       </div>

@@ -1,18 +1,36 @@
 'use client';
 
-import { MapPin, Package, Phone, Navigation2 } from 'lucide-react';
+import { MapPin, Package, Phone, Navigation2, Clock, Route } from 'lucide-react';
 
 import type { StopItem } from '@/types/fleet';
 import NavButton from '@/components/driver/NavButton';
+import { haversineKm } from '@/lib/clustering';
 
 interface DriverHeroCardProps {
   stop: StopItem;
   total: number;
+  /** Şoförün anlık konumu (varsa) — bu durağa uzaklık gösterilir. */
+  driverCoords?: { lat: number; lng: number } | null;
 }
 
 /** Kahraman kart — şoförün gitmesi gereken birincil (aktif) durak. */
-export default function DriverHeroCard({ stop, total }: DriverHeroCardProps) {
+export default function DriverHeroCard({
+  stop,
+  total,
+  driverCoords,
+}: DriverHeroCardProps) {
   const { location } = stop;
+  const distanceKm =
+    driverCoords &&
+    Number.isFinite(location.lat) &&
+    Number.isFinite(location.lng)
+      ? haversineKm(
+          driverCoords.lat,
+          driverCoords.lng,
+          location.lat,
+          location.lng,
+        )
+      : null;
 
   return (
     <div
@@ -58,6 +76,18 @@ export default function DriverHeroCard({ stop, total }: DriverHeroCardProps) {
             <Package className="h-5 w-5" />
             {location.boxCount} koli
           </span>
+          {location.timeWindow && (
+            <span className="inline-flex items-center gap-1.5 rounded-xl bg-violet-50 px-3 py-1.5 text-base font-bold text-violet-700">
+              <Clock className="h-5 w-5" />
+              {location.timeWindow}
+            </span>
+          )}
+          {distanceKm != null && (
+            <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-1.5 text-base font-bold text-slate-700">
+              <Route className="h-5 w-5" />
+              ~{distanceKm < 10 ? distanceKm.toFixed(1) : distanceKm.toFixed(0)} km
+            </span>
+          )}
           {location.phone && (
             <a
               href={`tel:${location.phone}`}

@@ -14,8 +14,16 @@ const fmt = (p: Point) => `${p.lat},${p.lng}`;
 /**
  * Google Haritalar toplu rota:
  * https://www.google.com/maps/dir/?api=1&origin=..&destination=..&waypoints=a|b|c
+ *
+ * ÖNEMLİ: Duraklardan HİÇBİRİ başlangıç (origin) olarak tüketilmez — 8 durak
+ * varsa 8'i de rotada (waypoints + destination) görünür. `origin` yalnızca
+ * gerçek canlı GPS verildiğinde başlangıç olarak eklenir; verilmezse Google,
+ * cihazın kendi konumunu başlangıç kabul eder ve tüm duraklar liste olarak kalır.
  */
-export function buildGoogleMapsRouteUrl(origin: Point, stops: Point[]): string {
+export function buildGoogleMapsRouteUrl(
+  origin: Point | null,
+  stops: Point[],
+): string {
   if (stops.length === 0) return '';
 
   const destination = stops[stops.length - 1];
@@ -23,9 +31,9 @@ export function buildGoogleMapsRouteUrl(origin: Point, stops: Point[]): string {
 
   const params = new URLSearchParams({
     api: '1',
-    origin: fmt(origin),
     destination: fmt(destination),
   });
+  if (origin) params.set('origin', fmt(origin));
   if (waypoints.length > 0) {
     params.set('waypoints', waypoints.map(fmt).join('|'));
   }
@@ -36,11 +44,20 @@ export function buildGoogleMapsRouteUrl(origin: Point, stops: Point[]): string {
  * Yandex Haritalar toplu rota:
  * https://yandex.com.tr/harita/?rtext=oLat,oLng~s1Lat,s1Lng~...&rtt=auto
  * (Yandex virgül ve tilda ayırıcılarını ham bekler.)
+ *
+ * Yandex'in URL şemasında rota noktalarının ilki başlangıç kabul edilir; "cihaz
+ * konumu" için ayrı bir parametre yoktur. Bu yüzden canlı GPS verilirse başlangıç
+ * o olur, verilmezse ilk durak başlangıç olur — ama her durumda TÜM duraklar
+ * rtext içinde görünür (hiçbiri eksilmez).
  */
-export function buildYandexMapsRouteUrl(origin: Point, stops: Point[]): string {
-  if (stops.length === 0) return '';
+export function buildYandexMapsRouteUrl(
+  origin: Point | null,
+  stops: Point[],
+): string {
+  const pts = origin ? [origin, ...stops] : stops;
+  if (pts.length === 0) return '';
 
-  const rtext = [origin, ...stops].map(fmt).join('~');
+  const rtext = pts.map(fmt).join('~');
   return `https://yandex.com.tr/harita/?rtext=${rtext}&rtt=auto`;
 }
 

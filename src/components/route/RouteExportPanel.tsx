@@ -19,11 +19,15 @@ import {
   CloudOff,
   AlertTriangle,
   MapPin,
+  Printer,
 } from 'lucide-react';
 
 import { useDeliveryStore } from '@/store/useDeliveryStore';
 import { useHasHydrated } from '@/hooks/useHasHydrated';
 import { exportDeliveryReportToExcel } from '@/lib/excelUtils';
+import { printDriverSheets } from '@/lib/printDriverSheet';
+import UndeliveredPanel from '@/components/route/UndeliveredPanel';
+import HistoryPanel from '@/components/route/HistoryPanel';
 import { createShare, fetchShare } from '@/services/shareService';
 import type {
   SharedRoute,
@@ -186,16 +190,30 @@ export default function RouteExportPanel() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleExport}
-          disabled={!hasRoutes}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300"
-        >
-          <FileDown className="h-4 w-4" />
-          Dağıtım Raporunu Excel Olarak İndir
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => printDriverSheets(routes)}
+            disabled={!hasRoutes}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Printer className="h-4 w-4" />
+            Föyleri Yazdır
+          </button>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={!hasRoutes}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            <FileDown className="h-4 w-4" />
+            Excel Raporu İndir
+          </button>
+        </div>
       </div>
+
+      {/* Eksik / ulaşılamayan teslimatların yönetimi (Özellik 2) */}
+      {hasRoutes && <UndeliveredPanel />}
 
       {/* Canlı paylaşım kontrol çubuğu */}
       {hasRoutes && (
@@ -400,6 +418,14 @@ export default function RouteExportPanel() {
                         Şoför Ekranını Aç
                       </a>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => printDriverSheets([route])}
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 px-2 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      Föyü Yazdır
+                    </button>
                   </div>
                 </div>
               );
@@ -407,6 +433,9 @@ export default function RouteExportPanel() {
           </div>
         )}
       </div>
+
+      {/* Dağıtım geçmişi / arşiv (Özellik 7) */}
+      <HistoryPanel />
     </section>
   );
 }

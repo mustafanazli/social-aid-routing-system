@@ -15,6 +15,8 @@ import type {
   StopItem,
   DeliveryProof,
 } from '@/types/fleet';
+import type { DeliveryArchive } from '@/types/delivery';
+import { generateId } from '@/lib/utils';
 
 /**
  * Uygulama akışındaki 4 ana adım:
@@ -36,6 +38,8 @@ interface DeliveryState {
   activeStep: WorkflowStep;
   /** Aktif canlı paylaşım kimliği (varsa) — şoför linkleri bunu taşır. */
   shareId: string | null;
+  /** Tamamlanıp arşivlenmiş geçmiş dağıtımlar (en yeni başta). */
+  history: DeliveryArchive[];
 
   // --- Excel / ham veri ---
   setExcelRows: (rows: RawExcelRow[]) => void;
@@ -79,9 +83,47 @@ interface DeliveryState {
   // --- Canlı şoför paylaşımı ---
   setShareId: (shareId: string | null) => void;
 
+  // --- Dağıtım geçmişi (arşiv) ---
+  /** Mevcut rotaları özetleyip geçmişe ekler; boş rota varsa hiçbir şey yapmaz. */
+  archiveCurrentSession: (label: string) => void;
+  removeArchive: (id: string) => void;
+
   // --- Adım kontrolü & sıfırlama ---
   setActiveStep: (step: WorkflowStep) => void;
+  /** Bir adres kümesini yeni dağıtım için pipeline'a yükler (eksik teslimatlar). */
+  loadForRedelivery: (addresses: SanitizedAddress[]) => void;
   resetSession: () => void;
+}
+
+/** Rotalardan arşiv özeti üretir (durum sayımları + toplamlar). */
+function summarizeRoutes(
+  routes: VehicleRoute[],
+  label: string,
+): DeliveryArchive {
+  const stops = routes.flatMap((r) => r.stops);
+  return {
+    id: generateId('arch'),
+    archivedAt: new Date().toISOString(),
+    label,
+    vehicleCount: routes.length,
+    totalStops: stops.length,
+    delivered: stops.filter((s) => s.status === 'DELIVERED').length,
+    notHome: stops.filter((s) => s.status === 'NOT_HOME').length,
+    pending: stops.filter(
+      (s) => s.status === 'PENDING' || s.status === 'CANCELLED',
+    ).length,
+    totalDistanceKm: routes.reduce((s, r) => s + (r.totalDistanceKm || 0), 0),
+    totalBoxes: routes.reduce((s, r) => s + (r.totalBoxesAssigned || 0), 0),
+    // Kanıt görsellerini arşive taşımıyoruz (boyut + gizlilik).
+    routes: routes.map((r) => ({
+      ...r,
+      stops: r.stops.map((s) => {
+        const copy = { ...s };
+        delete copy.proof;
+        return copy;
+      }),
+    })),
+  };
 }
 
 const initialState = {
@@ -93,6 +135,7 @@ const initialState = {
   routes: [] as VehicleRoute[],
   activeStep: 1 as WorkflowStep,
   shareId: null as string | null,
+  history: [] as DeliveryArchive[],
 };
 
 export const useDeliveryStore = create<DeliveryState>()(
@@ -215,19 +258,50 @@ export const useDeliveryStore = create<DeliveryState>()(
       // --- Canlı şoför paylaşımı ---
       setShareId: (shareId) => set({ shareId }),
 
+      // --- Dağıtım geçmişi (arşiv) ---
+      archiveCurrentSession: (label) =>
+        set((state) => {
+          if (state.routes.length === 0) return state;
+          const trimmed = label.trim() || 'Dağıtım';
+          return {
+            history: [
+              summarizeRoutes(state.routes, trimmed),
+              ...(state.history ?? []),
+            ],
+          };
+        }),
+      removeArchive: (id) =>
+        set((state) => ({
+          history: (state.history ?? []).filter((h) => h.id !== id),
+        })),
+
       // --- Adım kontrolü & sıfırlama ---
       setActiveStep: (step) => set({ activeStep: step }),
-      resetSession: () => set({ ...initialState }),
+      loadForRedelivery: (addresses) =>
+        set({
+          sanitizedAddresses: addresses,
+          geocodedLocations: [],
+          vehicleConfigs: [],
+          routes: [],
+          shareId: null,
+          activeStep: 1,
+        }),
+      // Geçmiş arşivi korunur; yalnızca aktif oturum sıfırlanır.
+      resetSession: () =>
+        set((state) => ({ ...initialState, history: state.history })),
     }),
     {
       name: 'pendik-delivery-store',
-      version: 1,
+      version: 2,
       // Güvenli localStorage: bozuk veri sessizce temizlenir, kota hatası
       // uygulamayı kilitlemez (Faz 7.5).
       storage: createJSONStorage(() => createSafeStorage()),
-      // Sürüm uyuşmazlığında güvenli varsayılana (initialState) düş.
+      // v1 → v2: yalnızca `history` alanı eklendi; mevcut oturum korunur.
       migrate: (persistedState, version) => {
-        if (version !== 1) {
+        if (version === 1 && persistedState && typeof persistedState === 'object') {
+          return { ...(persistedState as object), history: [] } as unknown as DeliveryState;
+        }
+        if (version !== 2) {
           return initialState as unknown as DeliveryState;
         }
         return persistedState as DeliveryState;

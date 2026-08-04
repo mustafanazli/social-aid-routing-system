@@ -1,15 +1,20 @@
 'use client';
 
 import { Draggable } from '@hello-pangea/dnd';
-import { GripVertical, MapPin, Package } from 'lucide-react';
+import { GripVertical, MapPin, Package, Clock } from 'lucide-react';
 
 import type { StopItem } from '@/types/fleet';
+import { minutesToHHMM, type WindowFit } from '@/lib/timeWindow';
 
 interface DraggableStopItemProps {
   vehicleId: string;
   stop: StopItem;
   index: number;
   color: string;
+  /** Bu durak için tahmini varış (gün-içi dakika). */
+  etaMinutes?: number;
+  /** Tahmini varışın ziyaret penceresine uyumu. */
+  windowFit?: WindowFit;
 }
 
 /** Sürükle-bırak yapılabilen tek durak satırı (PRD Bölüm 4.4). */
@@ -18,8 +23,17 @@ export default function DraggableStopItem({
   stop,
   index,
   color,
+  etaMinutes,
+  windowFit,
 }: DraggableStopItemProps) {
   const { location } = stop;
+  const tw = location.timeWindow;
+  const fitCls =
+    windowFit === 'late'
+      ? 'bg-rose-100 text-rose-700'
+      : windowFit === 'early'
+        ? 'bg-amber-100 text-amber-700'
+        : 'bg-emerald-100 text-emerald-700';
 
   return (
     <Draggable draggableId={`${vehicleId}:${location.id}`} index={index}>
@@ -57,6 +71,30 @@ export default function DraggableStopItem({
             <p className="truncate text-xs text-slate-500">
               {location.cleanAddress}
             </p>
+            {(tw || etaMinutes != null) && (
+              <p className="mt-1 flex flex-wrap items-center gap-1.5">
+                {etaMinutes != null && (
+                  <span className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                    <Clock className="h-2.5 w-2.5" />~{minutesToHHMM(etaMinutes)}
+                  </span>
+                )}
+                {tw && (
+                  <span
+                    className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${fitCls}`}
+                    title={
+                      windowFit === 'late'
+                        ? 'Tahmini varış pencereden sonra — sırayı öne alın'
+                        : windowFit === 'early'
+                          ? 'Pencereden önce varış — beklemek gerekebilir'
+                          : 'Ziyaret penceresine uygun'
+                    }
+                  >
+                    {tw}
+                    {windowFit === 'late' ? ' ✕' : windowFit === 'ok' ? ' ✓' : ''}
+                  </span>
+                )}
+              </p>
+            )}
           </div>
 
           <div className="flex shrink-0 flex-col items-end gap-1">

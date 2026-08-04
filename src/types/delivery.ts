@@ -15,3 +15,24 @@ export interface DeliverySession {
   unassignedLocations: GeocodedLocation[];
   globalStatus: GlobalStatus;
 }
+
+/**
+ * Arşivlenmiş (tamamlanmış) bir dağıtımın özeti + tam rota anlık görüntüsü.
+ * "Dağıtım Geçmişi" panelinde listelenir; raporu tekrar indirilebilir.
+ */
+export interface DeliveryArchive {
+  id: string;
+  /** Arşivlenme zamanı (ISO). */
+  archivedAt: string;
+  /** Kullanıcının verdiği ad (ör. "4 Ağustos Sabah Dağıtımı"). */
+  label: string;
+  vehicleCount: number;
+  totalStops: number;
+  delivered: number;
+  notHome: number;
+  pending: number;
+  totalDistanceKm: number;
+  totalBoxes: number;
+  /** Raporu yeniden üretebilmek için rota anlık görüntüsü (kanıt görselleri hariç). */
+  routes: VehicleRoute[];
+}

@@ -24,6 +24,7 @@ import {
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import MapErrorBoundary from '@/components/common/MapErrorBoundary';
 import LocationVerifyList from '@/components/map/LocationVerifyList';
+import { isOutOfPendik } from '@/lib/geoBounds';
 import type { GeocodedLocation } from '@/types/address';
 
 /**
@@ -90,6 +91,18 @@ export default function MapSection() {
       ).length,
     [locatedOnMap],
   );
+
+  // Pendik viewbox dışına düşen (muhtemelen yanlış eşleşmiş) otomatik konumlar.
+  const outOfBounds = useMemo(
+    () =>
+      locatedOnMap.filter(
+        (l) => l.geocodingStatus === 'SUCCESS' && isOutOfPendik(l.lat, l.lng),
+      ).length,
+    [locatedOnMap],
+  );
+
+  // Kontrol edilmesi önerilen toplam adres (bulunamayan + düşük güven + Pendik dışı).
+  const suspectTotal = failedLocations.length + lowConfidence + outOfBounds;
 
   const startGeocoding = useCallback(async () => {
     // Throttle: geocoding sürerken tekrar tetiklenmeyi engelle.
@@ -253,6 +266,27 @@ export default function MapSection() {
               {lowConfidence} düşük güven
             </span>
           )}
+          {outOfBounds > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-sm font-medium text-rose-700">
+              <AlertTriangle className="h-4 w-4" />
+              {outOfBounds} Pendik dışı
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Şüpheli adres uyarı şeridi (Özellik 4) — kontrol edilmesi önerilir. */}
+      {hasGeocoded && suspectTotal > 0 && (
+        <div className="flex items-start gap-2 border-b border-amber-100 bg-amber-50/70 px-5 py-3 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <p className="min-w-0">
+            <strong>{suspectTotal} adres kontrol edilmeli.</strong>{' '}
+            {failedLocations.length > 0 && `${failedLocations.length} bulunamadı, `}
+            {lowConfidence > 0 && `${lowConfidence} düşük güvenli, `}
+            {outOfBounds > 0 && `${outOfBounds} Pendik sınırı dışında. `}
+            Aşağıdaki <strong>Konum Doğrulama</strong> listesinden bunları
+            Google Maps&apos;te açıp doğru koordinatı yapıştırarak düzeltin.
+          </p>
         </div>
       )}
 

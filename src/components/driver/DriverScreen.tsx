@@ -35,7 +35,6 @@ import {
   buildYandexMapsRouteUrl,
   type Point,
 } from '@/lib/navigationLinks';
-import { PENDIK_MUNICIPALITY } from '@/constants/config';
 import DriverHeroCard from '@/components/driver/DriverHeroCard';
 import type {
   StopItem,
@@ -321,12 +320,26 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
     }, 450);
   };
 
-  const origin: Point = driverCoords ?? { ...PENDIK_MUNICIPALITY };
-  const stopPoints: Point[] = sortedStops
+  // Başlangıç noktası YALNIZCA gerçek canlı GPS varsa eklenir. Yedek (belediye)
+  // konumu başlangıç olarak konmaz — aksi halde harita bunu "0. durak" gibi ilk
+  // sıraya koyup gerçek ilk teslimat durağını 2. sıraya itiyordu. Canlı konum
+  // yoksa rota doğrudan ilk teslimat durağından başlar (harita cihaz konumunu
+  // kendisi başlangıç kabul eder).
+  const liveOrigin: Point | null =
+    locationStatus === 'success' && !locationIsFallback && driverCoords
+      ? driverCoords
+      : null;
+  // Toplu rota: yalnızca KALAN (henüz teslim edilmemiş) duraklar, sıra sırasıyla.
+  // Böylece harita servisleri tamamlanmış duraklara geri dönmeden ilerler.
+  const remainingStops = sortedStops.filter((s) => s.status === 'PENDING');
+  const bulkStops = remainingStops.length > 0 ? remainingStops : sortedStops;
+  const stopPoints: Point[] = bulkStops
     .map((s) => ({ lat: s.location.lat, lng: s.location.lng }))
     .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
-  const googleRouteUrl = buildGoogleMapsRouteUrl(origin, stopPoints);
-  const yandexRouteUrl = buildYandexMapsRouteUrl(origin, stopPoints);
+  const googleRouteUrl = buildGoogleMapsRouteUrl(liveOrigin, stopPoints);
+  const yandexRouteUrl = buildYandexMapsRouteUrl(liveOrigin, stopPoints);
+  // Not: Apple Haritalar URL şeması çok duraklı rotayı desteklemediğinden toplu
+  // rota bölümünde yer almaz; Apple yalnızca tek-tek durak navigasyonunda bulunur.
   const canBulkNavigate = stopPoints.length > 0;
 
   return (
@@ -454,7 +467,9 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
           >
             <MapIcon className="h-4 w-4 text-sky-600" />
             <span className="flex-1 text-sm font-semibold text-slate-700">
-              Tüm Rotayı Haritada Aç
+              {remainingStops.length > 0
+                ? `Kalan Rotayı Haritada Aç (${remainingStops.length} durak)`
+                : 'Rotayı Haritada Aç'}
             </span>
             <ChevronDown
               className={`h-4 w-4 text-slate-500 transition-transform ${
@@ -522,13 +537,21 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
                   Yandex
                 </a>
               </div>
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                Google ve Yandex tüm durakları sırayla açar. Google bazen sırayı
+                kendi optimize edebilir; sıra kritikse Yandex daha sadıktır.
+              </p>
             </div>
           )}
         </div>
 
         {/* ---- Kahraman kart / tamamlandı ---- */}
         {activeStop ? (
-          <DriverHeroCard stop={activeStop} total={total} />
+          <DriverHeroCard
+            stop={activeStop}
+            total={total}
+            driverCoords={locationStatus === 'success' ? driverCoords : null}
+          />
         ) : (
           <div className="flex flex-col items-center gap-2 rounded-3xl border border-emerald-200 bg-emerald-50 px-6 py-10 text-center">
             <PackageCheck className="h-12 w-12 text-emerald-600" />

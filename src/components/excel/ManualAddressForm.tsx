@@ -15,6 +15,7 @@ const EMPTY = {
   daireNo: '',
   telefon: '',
   koliSayisi: '1',
+  ziyaretSaati: '',
 };
 
 /**
@@ -65,6 +66,7 @@ export default function ManualAddressForm() {
       daireNo: form.daireNo.trim(),
       acikAdres: parts.join(' '),
       koliSayisi: Number.isFinite(koli) && koli > 0 ? koli : 1,
+      ziyaretSaati: form.ziyaretSaati.trim(),
     };
 
     addSanitizedAddress(rawRowToSanitized(raw));
@@ -178,6 +180,14 @@ export default function ManualAddressForm() {
             />
           </Field>
         </div>
+        <Field label="Ziyaret Saati (isteğe bağlı)">
+          <input
+            value={form.ziyaretSaati}
+            onChange={(e) => set('ziyaretSaati', e.target.value)}
+            placeholder="Ör. 09:00-12:00"
+            className={inputCls}
+          />
+        </Field>
       </div>
 
       {error && (

@@ -15,6 +15,7 @@ import {
   buildGoogleMapsSearchUrl,
   parseLatLng,
 } from '@/lib/navigationLinks';
+import { isOutOfPendik, isSuspectLocation } from '@/lib/geoBounds';
 
 interface LocationVerifyListProps {
   /** Haritalanmış tüm adresler (başarılı + bulunamayan). */
@@ -49,10 +50,22 @@ function statusMeta(loc: GeocodedLocation): { label: string; cls: string } {
   if (loc.geocodingStatus === 'FAILED' || loc.geocodingStatus === 'PENDING') {
     return { label: 'Bulunamadı', cls: 'bg-rose-100 text-rose-700' };
   }
+  if (isOutOfPendik(loc.lat, loc.lng)) {
+    return { label: 'Pendik dışı', cls: 'bg-rose-100 text-rose-700' };
+  }
   if ((loc.confidenceScore ?? 1) < 0.35) {
     return { label: 'Düşük güven', cls: 'bg-amber-100 text-amber-700' };
   }
   return { label: 'Otomatik bulundu', cls: 'bg-emerald-100 text-emerald-700' };
+}
+
+/** Kontrol edilmesi gereken (bulunamadı / düşük güven / Pendik dışı) konum mu? */
+function needsCheck(loc: GeocodedLocation): boolean {
+  return (
+    loc.geocodingStatus === 'FAILED' ||
+    loc.geocodingStatus === 'PENDING' ||
+    isSuspectLocation(loc)
+  );
 }
 
 /**
@@ -67,11 +80,25 @@ export default function LocationVerifyList({
 }: LocationVerifyListProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [onlySuspect, setOnlySuspect] = useState(false);
 
   const verifiedCount = useMemo(
     () => locations.filter((l) => l.geocodingStatus === 'MANUAL').length,
     [locations],
   );
+
+  const suspectCount = useMemo(
+    () => locations.filter(needsCheck).length,
+    [locations],
+  );
+
+  // Şüpheli olanlar en üstte; isteğe bağlı olarak yalnızca şüpheliler gösterilir.
+  const visible = useMemo(() => {
+    const base = onlySuspect ? locations.filter(needsCheck) : locations;
+    return [...base].sort(
+      (a, b) => Number(needsCheck(b)) - Number(needsCheck(a)),
+    );
+  }, [locations, onlySuspect]);
 
   const setDraft = (id: string, value: string) =>
     setDrafts((d) => ({ ...d, [id]: value }));
@@ -108,10 +135,26 @@ export default function LocationVerifyList({
             Google Maps ile Konum Doğrulama
           </h4>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          {verifiedCount}/{locations.length} doğrulandı
-        </span>
+        <div className="flex items-center gap-2">
+          {suspectCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setOnlySuspect((v) => !v)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                onlySuspect
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+              }`}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {onlySuspect ? 'Tümünü göster' : `Şüpheliler (${suspectCount})`}
+            </button>
+          )}
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {verifiedCount}/{locations.length} doğrulandı
+          </span>
+        </div>
       </div>
 
       {/* Kısa yönerge */}
@@ -124,7 +167,7 @@ export default function LocationVerifyList({
 
       <div className="max-h-[28rem] overflow-y-auto px-3 pb-4">
         <ul className="space-y-2">
-          {locations.map((loc) => {
+          {visible.map((loc) => {
             const meta = statusMeta(loc);
             const provider = providerLabel(loc);
             const err = errors[loc.id];
