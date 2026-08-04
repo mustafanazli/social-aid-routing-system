@@ -18,6 +18,8 @@ import {
   PackageCheck,
   ChevronDown,
   Radio,
+  Send,
+  BadgeCheck,
 } from 'lucide-react';
 
 import { useDeliveryStore } from '@/store/useDeliveryStore';
@@ -26,6 +28,7 @@ import {
   fetchShare,
   patchStop,
   patchDriverLocation,
+  patchRouteCompletion,
 } from '@/services/shareService';
 import { sharedToVehicleRoute } from '@/lib/shareSerialization';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
@@ -91,6 +94,11 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
   const [busy, setBusy] = useState<'deliver' | 'nothome' | null>(null);
   const [showBulk, setShowBulk] = useState(false);
   const [sharingLoc, setSharingLoc] = useState(false);
+  // Dağıtım tamamlama raporu (canlı mod).
+  const [reportNote, setReportNote] = useState('');
+  const [reportSending, setReportSending] = useState(false);
+  const [reportSentAt, setReportSentAt] = useState<string | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   // Canlı mod: rotayı sunucudan çek ve kısa aralıklarla tazele (yönetici
   // sıralama değiştirirse yansısın). İlk yükleme hatası kritik; sonraki
@@ -112,6 +120,12 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
         setServerRoute((prev) =>
           mergeLocalProofs(sharedToVehicleRoute(shared), prev),
         );
+        // Bu araç için daha önce "dağıtımı tamamla" raporu gönderilmişse
+        // (başka cihaz/yeniden yükleme) durumu koru.
+        const mine = (snapshot.completions ?? []).find(
+          (c) => c.vehicleId === routeId,
+        );
+        if (mine) setReportSentAt(mine.completedAt);
         setServerStatus('ready');
         setServerError(null);
       } catch (error) {
@@ -319,6 +333,34 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
       setBusy(null);
     }, 450);
   };
+
+  // Dağıtımı tamamla: o anki durum özetini + isteğe bağlı notu yöneticiye iletir.
+  const handleSubmitReport = async () => {
+    if (!isLive || !shareId || !route) return;
+    setReportSending(true);
+    setReportError(null);
+    try {
+      await patchRouteCompletion(shareId, {
+        type: 'route-complete',
+        vehicleId: route.vehicleId,
+        ...(reportNote.trim() ? { note: reportNote.trim() } : {}),
+      });
+      setReportSentAt(new Date().toISOString());
+    } catch (error) {
+      setReportError(
+        error instanceof Error ? error.message : 'Rapor gönderilemedi.',
+      );
+    } finally {
+      setReportSending(false);
+    }
+  };
+
+  const deliveredCount = route.stops.filter(
+    (s) => s.status === 'DELIVERED',
+  ).length;
+  const notHomeCount = route.stops.filter(
+    (s) => s.status === 'NOT_HOME',
+  ).length;
 
   // Başlangıç noktası YALNIZCA gerçek canlı GPS varsa eklenir. Yedek (belediye)
   // konumu başlangıç olarak konmaz — aksi halde harita bunu "0. durak" gibi ilk
@@ -553,14 +595,77 @@ export default function DriverScreen({ routeId, shareId }: DriverScreenProps) {
             driverCoords={locationStatus === 'success' ? driverCoords : null}
           />
         ) : (
-          <div className="flex flex-col items-center gap-2 rounded-3xl border border-emerald-200 bg-emerald-50 px-6 py-10 text-center">
-            <PackageCheck className="h-12 w-12 text-emerald-600" />
-            <p className="text-lg font-black text-slate-900">
-              Tüm duraklar tamamlandı! 🎉
-            </p>
-            <p className="text-sm text-slate-600">
-              {total} durağın tamamı işlendi. Teşekkürler!
-            </p>
+          <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <PackageCheck className="h-12 w-12 text-emerald-600" />
+              <p className="text-lg font-black text-slate-900">
+                Tüm duraklar tamamlandı! 🎉
+              </p>
+              <p className="text-sm text-slate-600">
+                {total} durağın tamamı işlendi. Teşekkürler!
+              </p>
+            </div>
+
+            {/* Özet */}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-white px-3 py-2 text-center ring-1 ring-emerald-100">
+                <p className="text-2xl font-black text-emerald-600">
+                  {deliveredCount}
+                </p>
+                <p className="text-[11px] font-semibold text-slate-500">
+                  Teslim edildi
+                </p>
+              </div>
+              <div className="rounded-xl bg-white px-3 py-2 text-center ring-1 ring-amber-100">
+                <p className="text-2xl font-black text-amber-600">
+                  {notHomeCount}
+                </p>
+                <p className="text-[11px] font-semibold text-slate-500">
+                  Evde yok
+                </p>
+              </div>
+            </div>
+
+            {/* Canlı modda: raporu yöneticiye gönder */}
+            {isLive &&
+              (reportSentAt ? (
+                <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white">
+                  <BadgeCheck className="h-5 w-5" />
+                  Rapor yöneticiye iletildi ·{' '}
+                  {new Date(reportSentAt).toLocaleTimeString('tr-TR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </div>
+              ) : (
+                <div className="mt-4">
+                  <textarea
+                    value={reportNote}
+                    onChange={(e) => setReportNote(e.target.value)}
+                    rows={2}
+                    placeholder="İsteğe bağlı not (ör. 2 hane ulaşılamadı, koliler depoya döndü)…"
+                    className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSubmitReport}
+                    disabled={reportSending}
+                    className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-base font-black text-white shadow-md shadow-emerald-500/30 transition active:scale-95 disabled:opacity-70"
+                  >
+                    {reportSending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Send className="h-5 w-5" />
+                    )}
+                    Dağıtımı Tamamla ve Raporu Gönder
+                  </button>
+                  {reportError && (
+                    <p className="mt-1.5 text-center text-xs font-medium text-rose-600">
+                      {reportError}
+                    </p>
+                  )}
+                </div>
+              ))}
           </div>
         )}
 

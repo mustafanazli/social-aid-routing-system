@@ -6,6 +6,8 @@ import {
   isValidStopPatch,
   applyDriverLocation,
   isValidDriverLocationPatch,
+  applyRouteCompletion,
+  isValidRouteCompletionPatch,
 } from '@/lib/shareSerialization';
 
 /**
@@ -43,6 +45,7 @@ export async function GET(
   return Response.json({
     routes: share.routes,
     driverLocations: share.driverLocations ?? [],
+    completions: share.completions ?? [],
     createdAt: share.createdAt,
     updatedAt: share.updatedAt,
   });
@@ -61,9 +64,13 @@ export async function PATCH(
     return Response.json({ error: 'Geçersiz JSON gövdesi.' }, { status: 400 });
   }
 
-  // İki tür güncelleme kabul edilir: (1) şoför konumu, (2) durak durumu.
-  const isLocation = isValidDriverLocationPatch(body);
-  if (!isLocation && !isValidStopPatch(body)) {
+  // Üç tür güncelleme kabul edilir: (1) şoför konumu, (2) durak durumu,
+  // (3) dağıtımı tamamlama bildirimi.
+  if (
+    !isValidDriverLocationPatch(body) &&
+    !isValidStopPatch(body) &&
+    !isValidRouteCompletionPatch(body)
+  ) {
     return Response.json(
       { error: 'Geçersiz güncelleme isteği.' },
       { status: 400 },
@@ -87,15 +94,21 @@ export async function PATCH(
   }
 
   const updatedAt = new Date().toISOString();
-  // Diğer alan her iki dalda da korunur (konum güncellemesi durakları,
-  // durak güncellemesi konumları silmemeli). Inline tip-guard'lar `body`'yi
-  // daraltır.
+  // Dokunulmayan alanlar korunur (bir dalın güncellemesi diğerlerini silmemeli).
+  // Inline tip-guard'lar `body`'yi daraltır.
   let updatedRoutes = share.routes;
   let updatedLocations = share.driverLocations;
+  let updatedCompletions = share.completions;
   if (isValidDriverLocationPatch(body)) {
     updatedLocations = applyDriverLocation(share.driverLocations, body);
   } else if (isValidStopPatch(body)) {
     updatedRoutes = applyStopPatch(share.routes, body);
+  } else if (isValidRouteCompletionPatch(body)) {
+    updatedCompletions = applyRouteCompletion(
+      share.completions,
+      body,
+      share.routes,
+    );
   }
 
   try {
@@ -104,6 +117,7 @@ export async function PATCH(
       updatedAt,
       routes: updatedRoutes,
       driverLocations: updatedLocations,
+      completions: updatedCompletions,
     });
   } catch (error) {
     const message =
@@ -114,6 +128,7 @@ export async function PATCH(
   return Response.json({
     routes: updatedRoutes,
     driverLocations: updatedLocations ?? [],
+    completions: updatedCompletions ?? [],
     updatedAt,
   });
 }

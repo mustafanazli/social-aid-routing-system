@@ -7,6 +7,8 @@ import type {
   StopPatch,
   DriverLocation,
   DriverLocationPatch,
+  RouteCompletion,
+  RouteCompletionPatch,
 } from '@/lib/shareSerialization';
 import type { VehicleRoute } from '@/types/fleet';
 
@@ -20,6 +22,7 @@ export interface CreateShareResult {
 export interface ShareSnapshot {
   routes: SharedRoute[];
   driverLocations?: DriverLocation[];
+  completions?: RouteCompletion[];
   createdAt: string;
   updatedAt: string;
 }
@@ -91,5 +94,23 @@ export async function patchDriverLocation(
       error?: string;
     } | null;
     throw new Error(data?.error ?? `Konum gönderilemedi (${res.status}).`);
+  }
+}
+
+/** Şoförün "dağıtımı tamamladım" raporunu sunucuya iletir. */
+export async function patchRouteCompletion(
+  shareId: string,
+  patch: RouteCompletionPatch,
+): Promise<void> {
+  const res = await fetch(`/api/share/${encodeURIComponent(shareId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(data?.error ?? `Rapor gönderilemedi (${res.status}).`);
   }
 }

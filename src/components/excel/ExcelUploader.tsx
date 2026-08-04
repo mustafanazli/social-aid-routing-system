@@ -178,10 +178,15 @@ export default function ExcelUploader({
           <p className="text-sm font-semibold text-slate-800">
             {isParsing
               ? 'Dosya okunuyor…'
-              : 'Excel veya PDF dosyasını buraya sürükleyin veya seçin'}
+              : 'Excel, CSV veya PDF dosyasını buraya sürükleyin veya seçin'}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Desteklenen biçimler: .xlsx, .xls · .pdf (metin tabanlı) · Maks. 5–8 MB
+            Desteklenen biçimler: .xlsx, .xls, .csv · .pdf (metin tabanlı) ·
+            Maks. 5–8 MB
+          </p>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Başlıklar (Ad Soyad, Mahalle, Adres, Telefon…) farklı yazılsa ya da
+            adres tek sütunda olsa da sistem otomatik tanır.
           </p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white">

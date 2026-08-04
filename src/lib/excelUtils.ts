@@ -20,28 +20,39 @@ const COLUMN_ALIASES: Record<keyof RawExcelFieldMap, string[]> = {
     'adi soyadi',
     'ad-soyad',
     'isim',
+    'isim soyisim',
     'ad',
+    'adi',
     'alici',
     'alici adi',
     'alici ad soyad',
+    'musteri',
+    'musteri adi',
+    'hak sahibi',
+    'ad soyad unvan',
     'name',
     'fullname',
+    'full name',
     'kisi',
   ],
   telefon: [
     'telefon',
+    'telefon no',
+    'telefon numarasi',
     'tel',
     'tel no',
-    'telefon no',
     'gsm',
     'gsm no',
     'cep',
     'cep telefonu',
     'cep no',
+    'iletisim',
+    'irtibat',
+    'irtibat no',
     'phone',
     'numara',
   ],
-  mahalle: ['mahalle', 'mah', 'mahalle adi', 'semt'],
+  mahalle: ['mahalle', 'mah', 'mahalle adi', 'mah.', 'semt'],
   caddeSokak: [
     'cadde sokak',
     'cadde/sokak',
@@ -68,9 +79,13 @@ const COLUMN_ALIASES: Record<keyof RawExcelFieldMap, string[]> = {
     'adres',
     'adres bilgisi',
     'tam adres',
+    'acik adres bilgisi',
     'adres tarifi',
     'address',
     'ikamet adresi',
+    'ikametgah',
+    'ev adresi',
+    'teslimat adresi',
     // Dışa aktarılan raporun tekrar yüklenebilmesi için rapor sütunları.
     'orijinal adres',
     'temizlenmis adres',
@@ -113,28 +128,66 @@ interface RawExcelFieldMap {
   boylam?: string;
 }
 
-/** Ham excel objesindeki başlıkları bilinen alanlarla eşleştirir. */
+/**
+ * Ham excel objesindeki başlıkları bilinen alanlarla eşleştirir.
+ *
+ * İki geçişli + "sahiplenme" mantığı: her başlık EN FAZLA bir alana atanır.
+ *   1) Geçiş: birebir eşleşmeler (alias === başlık) — en güvenilir.
+ *   2) Geçiş: kısmi ("içerir") eşleşmeler, yalnızca ≥4 karakterlik alias'larla
+ *      (kısa "no", "ad" gibi alias'ların "Telefon No" / "Adres" başlıklarını
+ *      yanlışlıkla kapmasını önler).
+ * Böylece "Telefon No" telefona, "Adres" açık adrese doğru gider; aynı başlık
+ * ikinci bir alana yeniden atanmaz.
+ */
 function detectColumnMapping(headers: string[]): RawExcelFieldMap {
   const mapping: RawExcelFieldMap = {};
+  const claimed = new Set<string>(); // atanmış (sahiplenilmiş) başlıklar
   const normalizedHeaders = headers.map((h) => ({
     original: h,
     norm: normalizeTr(String(h)),
   }));
+  const fields = Object.keys(COLUMN_ALIASES) as (keyof RawExcelFieldMap)[];
 
-  (Object.keys(COLUMN_ALIASES) as (keyof RawExcelFieldMap)[]).forEach((field) => {
-    if (mapping[field]) return;
+  // 1) Birebir eşleşmeler (alan sırasına göre öncelik).
+  for (const field of fields) {
+    if (mapping[field]) continue;
     const aliases = COLUMN_ALIASES[field];
-    // Önce birebir eşleşme, sonra "içerir" eşleşmesi denenir.
-    const exact = normalizedHeaders.find((h) => aliases.includes(h.norm));
-    const partial =
-      exact ??
-      normalizedHeaders.find((h) =>
-        aliases.some((a) => h.norm === a || h.norm.includes(a)),
-      );
-    if (partial) mapping[field] = partial.original;
-  });
+    const hit = normalizedHeaders.find(
+      (h) => !claimed.has(h.original) && aliases.includes(h.norm),
+    );
+    if (hit) {
+      mapping[field] = hit.original;
+      claimed.add(hit.original);
+    }
+  }
+
+  // 2) Kısmi eşleşmeler — yalnızca ayırt edici (≥4 karakter) alias'larla.
+  for (const field of fields) {
+    if (mapping[field]) continue;
+    const aliases = COLUMN_ALIASES[field].filter((a) => a.length >= 4);
+    const hit = normalizedHeaders.find(
+      (h) =>
+        !claimed.has(h.original) && aliases.some((a) => h.norm.includes(a)),
+    );
+    if (hit) {
+      mapping[field] = hit.original;
+      claimed.add(hit.original);
+    }
+  }
 
   return mapping;
+}
+
+/**
+ * Serbest bir metin içinden Türkiye telefon numarası çıkarır (telefon sütunu
+ * yoksa kullanılır). "0532 111 22 33", "+90 532...", "5321112233" gibi biçimleri
+ * yakalar; bulunamazsa boş döner.
+ */
+function extractPhoneFromText(text: string): string {
+  if (!text) return '';
+  // 10–13 haneli, ayraçlı olabilen bir numara dizisi ara.
+  const m = text.match(/(?:\+?90[\s.\-]?)?0?[\s.\-]?5\d{2}[\s.\-]?\d{3}[\s.\-]?\d{2}[\s.\-]?\d{2}/);
+  return m ? m[0].trim() : '';
 }
 
 /** "5", "5 koli", "3 adet" gibi değerleri sayıya çevirir. */
@@ -171,7 +224,20 @@ function parseCoord(value: unknown): number | null {
  */
 export async function parseExcelFile(file: File): Promise<RawExcelRow[]> {
   const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: 'array' });
+
+  // CSV, ikili Excel'den farklı çözülür: SheetJS ham baytları varsayılan olarak
+  // Latin (cp1252) okur ve Türkçe karakterleri bozar. Bu yüzden CSV'yi UTF-8
+  // metne çevirip `type:'string'` ile veririz (BOM temizlenir). SheetJS ayracı
+  // (virgül / noktalı virgül / sekme) otomatik algılar.
+  const isCsv = file.name.toLowerCase().endsWith('.csv');
+  let workbook: XLSX.WorkBook;
+  if (isCsv) {
+    let text = new TextDecoder('utf-8').decode(buffer);
+    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+    workbook = XLSX.read(text, { type: 'string' });
+  } else {
+    workbook = XLSX.read(buffer, { type: 'array' });
+  }
 
   const firstSheetName = workbook.SheetNames[0];
   if (!firstSheetName) {
@@ -193,6 +259,11 @@ export async function parseExcelFile(file: File): Promise<RawExcelRow[]> {
 
   const headers = Object.keys(safeRows[0]);
   const mapping = detectColumnMapping(headers);
+
+  // Hiçbir alana atanmamış sütunlar — başlık tanınmadığında adres metni
+  // buralardan toparlanır (ör. tek sütunlu ya da alışılmadık başlıklı dosyalar).
+  const mappedHeaders = new Set(Object.values(mapping));
+  const unmappedHeaders = headers.filter((h) => !mappedHeaders.has(h));
 
   return safeRows.map((row, index): RawExcelRow => {
     const get = (field: keyof RawExcelFieldMap): string => {
@@ -218,15 +289,30 @@ export async function parseExcelFile(file: File): Promise<RawExcelRow[]> {
         .join(' ')
         .trim();
 
+    // Yedek: adres bileşenleri boşsa, atanmamış sütunları (saf sıra numaraları
+    // hariç) birleştirip adres olarak kullan. Böylece tanınmayan başlıklı ya da
+    // tek sütuna sıkıştırılmış adres listeleri de çözülür.
+    const fallbackAddress = unmappedHeaders
+      .map((h) => cellToString(row[h]))
+      .filter((v) => v && !/^\d{1,3}$/.test(v.trim()))
+      .join(', ');
+
+    // Telefon sütunu yoksa satırdaki herhangi bir hücreden numarayı yakala.
+    let telefon = get('telefon');
+    if (!telefon) {
+      const scan = headers.map((h) => cellToString(row[h])).join(' ');
+      telefon = extractPhoneFromText(scan);
+    }
+
     return {
       id: index + 1,
       adSoyad: get('adSoyad'),
-      telefon: get('telefon'),
+      telefon,
       mahalle,
       caddeSokak,
       binaNo,
       daireNo,
-      acikAdres: composedAddress,
+      acikAdres: composedAddress || fallbackAddress,
       koliSayisi: mapping.koliSayisi
         ? parseBoxCount(row[mapping.koliSayisi])
         : 1,

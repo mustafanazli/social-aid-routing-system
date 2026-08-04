@@ -58,6 +58,62 @@ export interface DriverLocation {
   updatedAt: string;
 }
 
+/** Şoförün "dağıtımı tamamladım" bildirimi + o anki durum özeti. */
+export interface RouteCompletion {
+  vehicleId: string;
+  completedAt: string;
+  /** Şoförün isteğe bağlı notu (ör. "3 hane ulaşılamadı"). */
+  note?: string;
+  delivered: number;
+  notHome: number;
+  total: number;
+}
+
+/** Şoför cihazından gelen "dağıtımı tamamla" isteği. */
+export interface RouteCompletionPatch {
+  type: 'route-complete';
+  vehicleId: string;
+  note?: string;
+}
+
+/** Tamamlama isteğini araç bazında ekler/günceller (o anki rotadan özet çıkarır). */
+export function applyRouteCompletion(
+  completions: RouteCompletion[] | undefined,
+  patch: RouteCompletionPatch,
+  routes: SharedRoute[],
+): RouteCompletion[] {
+  const base = completions ?? [];
+  const stops = routes.find((r) => r.vehicleId === patch.vehicleId)?.stops ?? [];
+  const entry: RouteCompletion = {
+    vehicleId: patch.vehicleId,
+    completedAt: new Date().toISOString(),
+    ...(patch.note ? { note: patch.note.slice(0, 300) } : {}),
+    delivered: stops.filter((s) => s.status === 'DELIVERED').length,
+    notHome: stops.filter((s) => s.status === 'NOT_HOME').length,
+    total: stops.length,
+  };
+  const idx = base.findIndex((c) => c.vehicleId === patch.vehicleId);
+  if (idx >= 0) {
+    const copy = base.slice();
+    copy[idx] = entry;
+    return copy;
+  }
+  return [...base, entry];
+}
+
+/** "Dağıtımı tamamla" patch gövdesini doğrular. */
+export function isValidRouteCompletionPatch(
+  value: unknown,
+): value is RouteCompletionPatch {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    v.type === 'route-complete' &&
+    typeof v.vehicleId === 'string' &&
+    (v.note === undefined || typeof v.note === 'string')
+  );
+}
+
 /** Şoför cihazından gelen konum güncelleme isteği. */
 export interface DriverLocationPatch {
   vehicleId: string;

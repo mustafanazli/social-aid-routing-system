@@ -4,13 +4,16 @@
  * koruması.
  */
 
-/** İzin verilen Excel uzantıları (yalnızca .xlsx / .xls). */
-export const ACCEPTED_EXCEL_EXTENSIONS = ['.xlsx', '.xls'] as const;
+/** İzin verilen tablo uzantıları (.xlsx / .xls / .csv). */
+export const ACCEPTED_EXCEL_EXTENSIONS = ['.xlsx', '.xls', '.csv'] as const;
 
 /** İzin verilen MIME tipleri (bazı tarayıcılar boş/octet-stream döndürebilir). */
 const ACCEPTED_MIME = new Set([
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-  'application/vnd.ms-excel', // .xls
+  'application/vnd.ms-excel', // .xls (ve bazı tarayıcılarda .csv)
+  'text/csv', // .csv
+  'application/csv', // .csv (bazı tarayıcılar)
+  'text/plain', // .csv (bazı tarayıcılar düz metin döndürür)
   'application/octet-stream', // bazı tarayıcılar
   '', // MIME belirtmeyen tarayıcılar
 ]);
@@ -48,7 +51,7 @@ export function validateExcelFile(file: File): FileValidationResult {
   if (!hasValidExt) {
     return {
       ok: false,
-      error: 'Yalnızca .xlsx veya .xls dosyaları kabul edilir.',
+      error: 'Yalnızca .xlsx, .xls, .csv veya .pdf dosyaları kabul edilir.',
     };
   }
 

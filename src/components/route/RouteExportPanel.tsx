@@ -28,12 +28,16 @@ import { exportDeliveryReportToExcel } from '@/lib/excelUtils';
 import { printDriverSheets } from '@/lib/printDriverSheet';
 import UndeliveredPanel from '@/components/route/UndeliveredPanel';
 import HistoryPanel from '@/components/route/HistoryPanel';
+import LiveDeliveryReport from '@/components/route/LiveDeliveryReport';
 import { createShare, fetchShare } from '@/services/shareService';
-import type {
-  SharedRoute,
-  DriverLocation,
+import {
+  sharedToVehicleRoute,
+  type SharedRoute,
+  type DriverLocation,
+  type RouteCompletion,
 } from '@/lib/shareSerialization';
 import type { SanitizedAddress } from '@/types/address';
+import type { VehicleRoute } from '@/types/fleet';
 
 // Leaflet SSR-güvensiz → yalnızca istemcide yükle.
 const LiveTrackingMap = dynamic(
@@ -69,6 +73,7 @@ export default function RouteExportPanel() {
   const [liveError, setLiveError] = useState<string | null>(null);
   const [sharedRoutes, setSharedRoutes] = useState<SharedRoute[]>([]);
   const [driverLocs, setDriverLocs] = useState<DriverLocation[]>([]);
+  const [completions, setCompletions] = useState<RouteCompletion[]>([]);
 
   // Şoför linkleri için origin yalnızca istemcide bilinir (SSR uyumu):
   // effect'te setState yerine dış kaynak anlık görüntüsü olarak okunur.
@@ -114,6 +119,7 @@ export default function RouteExportPanel() {
         setLive(next);
         setSharedRoutes(snapshot.routes);
         setDriverLocs(snapshot.driverLocations ?? []);
+        setCompletions(snapshot.completions ?? []);
         setLiveError(null);
       } catch (error) {
         if (cancelled) return;
@@ -142,7 +148,8 @@ export default function RouteExportPanel() {
   };
 
   const handleExport = () => {
-    exportDeliveryReportToExcel(routes, unassigned);
+    // Canlı yayın açıkken rapor, şoförün işaretlediği güncel durumları içerir.
+    exportDeliveryReportToExcel(reportRoutes, unassigned);
   };
 
   const handlePublish = async () => {
@@ -167,8 +174,16 @@ export default function RouteExportPanel() {
     setLive({});
     setSharedRoutes([]);
     setDriverLocs([]);
+    setCompletions([]);
     setLiveError(null);
   };
+
+  // Rapor & indirme kaynağı: canlı yayın açıkken sunucudaki GÜNCEL durumlar
+  // (şoförün işaretledikleri) kullanılır; aksi halde yerel (planlanan) rotalar.
+  const reportRoutes: VehicleRoute[] =
+    shareId && sharedRoutes.length > 0
+      ? sharedRoutes.map(sharedToVehicleRoute)
+      : routes;
 
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -324,6 +339,15 @@ export default function RouteExportPanel() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Canlı dağıtım raporu — şoförlerin işaretledikleri anlık yansır */}
+      {hasRoutes && (
+        <LiveDeliveryReport
+          routes={reportRoutes}
+          completions={completions}
+          live={Boolean(shareId)}
+        />
       )}
 
       <div className="p-5">
