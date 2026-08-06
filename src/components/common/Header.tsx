@@ -4,7 +4,6 @@ import { Radar, RotateCcw, ShieldCheck } from 'lucide-react';
 
 import { useDeliveryStore } from '@/store/useDeliveryStore';
 import SystemClock from '@/components/common/SystemClock';
-import ConnectionBadge from '@/components/common/ConnectionBadge';
 
 /** Akıllı Şehir Komuta Merkezi üst barı (Header). */
 export default function Header() {
@@ -38,9 +37,8 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Sağ: durum + saat + hızlı işlem */}
+        {/* Sağ: saat + hızlı işlem */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <ConnectionBadge />
           <SystemClock />
           <button
             type="button"
